@@ -1,0 +1,88 @@
+$------------------------------------------------------------
+PHYSICAL_PROBLEM 
+$------------------------------------------------------------
+PROBLEM_DEFINITION
+  TEMPORAL STATIC
+END_PROBLEM_DEFINITION
+PROPERTIES
+$    DENSITY=             500.0
+$    LAW_DENSITY=         CONSTANT       
+$    CONSTITUTIVE_MODEL   NEOHOOKE    BELYTSCHKO  \
+$                         4.64377E7      2.61212E7
+    CONSTITUTIVE_MODEL   ISOLIN                  \
+                         6.896E7 0.32
+$    RAYLEIGH_DUMPING, RAYALPHA= 100.0 ,RAYBETA= 0.0 
+$  GRAVITY:             MODULE=  50.0  ,  XCOMP = 0.0 YCOMP= 1.0 ZCOMP = 0.0
+END_PROPERTIES  
+$------------------------------------------------------------
+END_PHYSICAL_PROBLEM  
+$------------------------------------------------------------
+$
+$ IMPLICIT 
+$
+NUMERICAL_TREATMENT   
+  TIME_TREATMENT:       IMPLICIT
+$  NO_STEADY_STATE
+  TIME_INTEGRATION:     NEWMARK, NEWBE=0.25, NEWGA=0.5, NEWAL=0.0
+  MAXIMUM_ITERATION:    100
+  CONVERGENCE_TOLER:    1.0E-4
+  SAFETY_FACTOR:        10
+  ALGEBRAIC_SOLVER      
+     SOLVER:               CG, COARSE=DIRECT,SPARSE, KRYLOV=30  
+$     SOLVER:               GMRES,KRYLOV=30  
+    CONVERGENCE:           ITERA=1000,TOLER=1.0e-06,ADAPTI,RATIO=0.01
+     PRECONDITIONER:       DIAGONAL
+  END_ALGEBRAIC_SOLVER        
+END_NUMERICAL_TREATMENT
+$------------------------------------------------------------
+OUTPUT_&_POST-PROCESS
+ START_POSTPROCESS_AT                 STEP = 0
+ POSTPROCESS DISPL
+ POSTPROCESS SIGMA
+ POSTPROCESS EPSIL
+$ POSTPROCESS DISPLACEMENT
+$   WITNESS_POINTS
+$    DISPX
+$    DISPY
+$    DISPZ
+$    SEQVM
+$  END_WITNESS_POINTS
+END_OUTPUT_&_POST_PROCESS  
+$------------------------------------------------------------
+BOUNDARY_CONDITIONS, TRANSIENT
+$------------------------------------------------------------
+CODES, NODES
+       1     11   0.0  0.0  0
+       2     11   0.2  0.0  0
+END_CODES
+CODES, BOUNDARIES
+      3  3  0.0  0.0  1
+END_CODES 
+$FUNCTIONS
+$   TOTAL_NUMBER = 1
+$      CONDITION
+$      FUNCTION_NUMBER: 1
+$      TIMESHAPE: DISCRETE
+$      SHAPEDEFINITION
+$      3
+$      0.0  0.0  0.0   
+$      0.5  0.0  0.2  
+$      100.0  0.0  0.2
+$      END_SHAPEDEFINITION
+$      END_CONDITION
+$END_FUNCTIONS
+FUNCTIONS
+   TOTAL_NUMBER = 1
+      CONDITION
+      FUNCTION_NUMBER: 1
+      TIMESHAPE: DISCRETE
+      SHAPEDEFINITION
+      2
+      0.0  0.0  
+      0.1  -200000.0 
+      END_SHAPEDEFINITION
+      END_CONDITION
+END_FUNCTIONS
+$------------------------------------------------------------
+END_BOUNDARY_CONDITIONS  
+$------------------------------------------------------------

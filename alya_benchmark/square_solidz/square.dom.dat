@@ -1,0 +1,30 @@
+$--------------------------------------------------
+ DIMENSIONS
+   INCLUDE square.dims.dat
+   SPACE_DIMENSIONS=                        2 
+   TYPES_OF_ELEMS=                      TRI03
+   SKEW_SYSTEMS=            0
+   SLAVES=                  0
+   NO_SETS
+ END_DIMENSIONS
+ $--------------------------------------------------
+ STRATEGY
+   INTEGRATION_RULE:          OPEN 
+   DOMAIN_INTEGRATION_POINTS:    0         
+ END_STRATEGY
+ $--------------------------------------------------
+ GEOMETRY, GID
+   INCLUDE square.geo.dat
+$    FIELDS, NUMBER = 1
+$       FIELD = 1, DIMENSION = 1, BOUNDARIES
+$           INCLUDE square.field
+$       END_FIELD
+$    END_FIELDS
+ END_GEOMETRY
+ SETS
+ END_SETS
+ BOUNDARY_CONDITIONS, EXTRAPOLATE
+$ BOUNDARY_CONDITIONS
+   INCLUDE  square.fix.bou
+$   INCLUDE  square.fix.nod
+ END_BOUNDARY_CONDITIONS

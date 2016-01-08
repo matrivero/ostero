@@ -1,0 +1,6 @@
+$VolumeDefinition
+BULK 6.896E7 0.32
+$BoundaryConditionsDisplacement
+SURF2 1 1 0.0 0.0
+$BoundaryConditionsPressure
+SURF1 -100000.0
