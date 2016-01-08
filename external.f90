@@ -285,9 +285,9 @@ do e = 1,num_elements_bulk
     end if
 
     !CAUCHY DEFORMATION TENSOR
-    Cau = 0.0D0
     do k = 1,2
       do j = 1,2
+        Cau(j,k) = 0.0D0
         do l = 1,2
           Cau(j,k) = Cau(j,k) + F(l,j)*F(l,k)
         end do
@@ -346,7 +346,7 @@ do e = 1,num_elements_bulk
       S = 0.0D0
       do j = 1,2
         do k = 1,2
-          S(j,k) = (lame2_lambda(e)*log(det_F)-lame1_mu(e))*inv_Cau(j,k) + lame1_mu(e)*delta_kron(j,k)
+          S(j,k) = S(j,k) + (lame2_lambda(e)*log(det_F)-lame1_mu(e))*inv_Cau(j,k) + lame1_mu(e)*delta_kron(j,k)
         end do
       end do
 
@@ -357,8 +357,8 @@ do e = 1,num_elements_bulk
           do l = 1,2
             do m = 1,2
               D(j,k,l,m) = lame2_lambda(e)*inv_Cau(j,k)*inv_Cau(l,m) + & 
-              (lame1_mu(e)-lame2_lambda(e)*log(det_F))*(inv_Cau(j,l)* &
-              inv_Cau(k,m)*inv_Cau(j,m)*inv_Cau(k,l))
+              (lame1_mu(e)-lame2_lambda(e)*log(det_F))*(inv_Cau(j,l)*inv_Cau(k,m) + &
+              inv_Cau(j,m)*inv_Cau(k,l))
             end do
           end do
         end do

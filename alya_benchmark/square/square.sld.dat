@@ -8,7 +8,7 @@ PROPERTIES
 $    DENSITY=             500.0
 $    LAW_DENSITY=         CONSTANT       
 $    CONSTITUTIVE_MODEL   NEOHOOKE    BELYTSCHKO  \
-$                         4.64377E7      2.61212E7
+$                         4.643771043E7      2.612121212E7
     CONSTITUTIVE_MODEL   ISOLIN                  \
                          6.896E7 0.32
 $    RAYLEIGH_DUMPING, RAYALPHA= 100.0 ,RAYBETA= 0.0 

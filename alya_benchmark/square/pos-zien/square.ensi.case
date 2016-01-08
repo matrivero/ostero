@@ -1,0 +1,25 @@
+#
+# Alya generated post-process files
+# Ensight Gold Format
+#
+# Problem name:   square
+#
+FORMAT
+type:    ensight gold
+GEOMETRY
+model:         1   square.ensi.geo
+VARIABLE
+vector per node:       1    DISPL    square.ensi.DISPL-******
+scalar per node:       1    SIGXX    square.ensi.SIGXX-******
+scalar per node:       1    SIGYY    square.ensi.SIGYY-******
+scalar per node:       1    SIGXY    square.ensi.SIGXY-******
+scalar per node:       1    EPSXX    square.ensi.EPSXX-******
+scalar per node:       1    EPSYY    square.ensi.EPSYY-******
+scalar per node:       1    EPSXY    square.ensi.EPSXY-******
+TIME
+time set:                         1
+number of steps:                  6
+filename start number:        1 
+filename increment:           1 
+time values: 
+  0.00000E+00  0.10000E-01  0.20000E-01  0.30000E-01  0.40000E-01  0.50000E-01
