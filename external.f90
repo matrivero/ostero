@@ -286,8 +286,8 @@ do e = 1,num_elements_bulk
 
     !CAUCHY DEFORMATION TENSOR
     Cau = 0.0D0
-    do j = 1,2
-      do k = 1,2
+    do k = 1,2
+      do j = 1,2
         do l = 1,2
           Cau(j,k) = Cau(j,k) + F(l,j)*F(l,k)
         end do
@@ -299,24 +299,24 @@ do e = 1,num_elements_bulk
       stop
     end if
     
-    !!!!!!START ISOLIN MODEL!!!!!!
-    if (model == 'ISOL') then
-      !GREEN-LAGRANGE STRESS TENSOR
-      Et = 0.0D0
-      do j = 1,2
-        do k = 1,2
-          dummr = 0.0D0
-          do l = 1,2
-            dummr = dummr + F(l,j)*F(l,k)
-          Et(j,k) = 0.5*(dummr - delta_kron(j,k))
-          end do
+    !GREEN-LAGRANGE STRESS TENSOR
+    Et = 0.0D0
+    do j = 1,2
+      do k = 1,2
+        dummr = 0.0D0
+        do l = 1,2
+          dummr = dummr + F(l,j)*F(l,k)
+        Et(j,k) = 0.5*(dummr - delta_kron(j,k))
         end do
       end do
-      traceE = 0.0D0
-      do j = 1,2
-        traceE = traceE + Et(j,j)
-      end do
-
+    end do
+    traceE = 0.0D0
+    do j = 1,2
+      traceE = traceE + Et(j,j)
+    end do
+    
+    !!!!!!START ISOLIN MODEL!!!!!!
+    if (model == 'ISOL') then
       !SECOND PIOLA-KIRCHHOFF STRESS TENSOR
       S = 0.0D0
       do j = 1,2
@@ -342,16 +342,6 @@ do e = 1,num_elements_bulk
     
     !!!!!!START BELYTSCHKO MODEL - NEO-HOOKEAN MATERIAL (AS IMPLEMENTED IN ALYA)!!!!!!
     if (model == 'BELY') then 
-      !GREEN-LAGRANGE STRAIN TENSOR
-      Et = 0.0D0
-      do j = 1,2
-        do k = 1,2
-          do l = 1,2
-            Et(j,k) = Et(j,k) + 0.5*(F(l,j)*F(l,k) - delta_kron(j,k))
-          end do
-        end do
-      end do
-
       !SECOND PIOLA-KIRCHHOFF STRESS TENSOR
       S = 0.0D0
       do j = 1,2
@@ -378,16 +368,6 @@ do e = 1,num_elements_bulk
     
     !!!!!!START ZIENKIEWICZ MODEL - NEO-HOOKEAN MATERIAL - ZIENKIEWICZ VOL. 2, PAG. 341!!!!!!
     if (model == 'ZIEN') then 
-      !GREEN-LAGRANGE STRAIN TENSOR
-      Et = 0.0D0
-      do j = 1,2
-        do k = 1,2
-          do l = 1,2
-            Et(j,k) = Et(j,k) + 0.5*(F(l,j)*F(l,k) - delta_kron(j,k))
-          end do
-        end do
-      end do
-
       !SECOND PIOLA-KIRCHHOFF STRESS TENSOR
       S = 0.0D0
       S(1,1) = lame1_mu(e)*(1-inv_Cau(1,1)) + lame2_lambda(e)*det_F*(det_F-1)*inv_Cau(1,1)
@@ -413,16 +393,6 @@ do e = 1,num_elements_bulk
 
     !!!!!!START LAURSEN MODEL - NEO-HOOKEAN MATERIAL - LAURSEN'S CONTACT BOOK, PAG. 34!!!!!!
     if (model == 'LAUR') then 
-      !GREEN-LAGRANGE STRAIN TENSOR
-      Et = 0.0D0
-      do j = 1,2
-        do k = 1,2
-          do l = 1,2
-            Et(j,k) = Et(j,k) + 0.5*(F(l,j)*F(l,k) - delta_kron(j,k))
-          end do
-        end do
-      end do
-
       !SECOND PIOLA-KIRCHHOFF STRESS TENSOR
       S = 0.0D0
       do j = 1,2
