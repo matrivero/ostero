@@ -1,0 +1,25 @@
+#
+# Alya generated post-process files
+# Ensight Gold Format
+#
+# Problem name:   square_with_hole
+#
+FORMAT
+type:    ensight gold
+GEOMETRY
+model:         1   square_with_hole.ensi.geo
+VARIABLE
+vector per node:       1    DISPL    square_with_hole.ensi.DISPL-******
+scalar per node:       1    SIGXX    square_with_hole.ensi.SIGXX-******
+scalar per node:       1    SIGYY    square_with_hole.ensi.SIGYY-******
+scalar per node:       1    SIGXY    square_with_hole.ensi.SIGXY-******
+scalar per node:       1    EPSXX    square_with_hole.ensi.EPSXX-******
+scalar per node:       1    EPSYY    square_with_hole.ensi.EPSYY-******
+scalar per node:       1    EPSXY    square_with_hole.ensi.EPSXY-******
+TIME
+time set:                         1
+number of steps:                  6
+filename start number:        1 
+filename increment:           1 
+time values: 
+  0.00000E+00  0.10000E-01  0.20000E-01  0.30000E-01  0.40000E-01  0.50000E-01
