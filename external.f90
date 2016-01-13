@@ -4,12 +4,11 @@ module mod_fortran
 integer*4 :: num_elements_bulk
 real*8, allocatable, dimension(:,:) :: nodes
 integer*4, allocatable, dimension(:,:) :: elements_bulk
-real*8, allocatable, dimension(:,:) :: dh
 
 !inputs vmass_calc
 integer*4 :: num_nodes
-real*8, allocatable, dimension(:,:) :: pgauss
-real*8, allocatable, dimension(:) :: weight
+real*8, allocatable, dimension(:,:,:) :: pgauss
+real*8, allocatable, dimension(:,:) :: weight
 
 !inputs assembly
 real*8, allocatable, dimension(:) :: displ
@@ -39,30 +38,34 @@ contains
 
 subroutine init()
 
-allocate(dh(3,2))
-!shape1 h1 = 1-s-t
-!shape2 h2 = s
-!shape3 h3 = t
-dh = 0.0D0
-dh(1,1) = -1 !dh1/dxi
-dh(1,2) = -1 !dh1/deta
-dh(2,1) = 1 !dh2/dxi
-dh(2,2) = 0 !dh2/deta
-dh(3,1) = 0 !dh3/dxi
-dh(3,2) = 1 !dh3/deta
+allocate(weight(4,2))
+weight = 0.0D0
+weight(1,1) = 0.16667
+weight(2,1) = 0.16667
+weight(3,1) = 0.16667
 
-allocate(pgauss(3,2))
-pgauss(1,1) = 0.16667
-pgauss(1,2) = 0.16667
-pgauss(2,1) = 0.66667
-pgauss(2,2) = 0.16667
-pgauss(3,1) = 0.16667
-pgauss(3,2) = 0.66667
+weight(1,2) = 1.0
+weight(2,2) = 1.0
+weight(3,2) = 1.0
+weight(4,2) = 1.0
 
-allocate(weight(3))
-weight(1) = 0.16667
-weight(2) = 0.16667
-weight(3) = 0.16667
+allocate(pgauss(4,2,2))
+pgauss = 0.0D0
+pgauss(1,1,1) = 0.16667
+pgauss(1,2,1) = 0.16667
+pgauss(2,1,1) = 0.66667
+pgauss(2,2,1) = 0.16667
+pgauss(3,1,1) = 0.16667
+pgauss(3,2,1) = 0.66667
+
+pgauss(1,1,2) = -0.57735026918 
+pgauss(1,2,2) = -0.57735026918 
+pgauss(2,1,2) = 0.57735026918 
+pgauss(2,2,2) = -0.57735026918 
+pgauss(3,1,2) = 0.57735026918 
+pgauss(3,2,2) = 0.57735026918 
+pgauss(4,1,2) = -0.57735026918 
+pgauss(4,2,2) = 0.57735026918 
 
 allocate(plane(num_elements_bulk))
 allocate(lame1_mu(num_elements_bulk))
@@ -82,6 +85,59 @@ end subroutine init
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+subroutine derivs(pnode,igauss,dh)
+
+implicit none
+
+integer*4, intent(in) :: pnode,igauss
+real*8, dimension(4,2), intent(out) :: dh
+
+dh = 0.0D0
+if (pnode == 3) then
+  dh(1,1) = -1 !dh1/dxi
+  dh(1,2) = -1 !dh1/deta
+  dh(2,1) = 1 !dh2/dxi
+  dh(2,2) = 0 !dh2/deta
+  dh(3,1) = 0 !dh3/dxi
+  dh(3,2) = 1 !dh3/deta
+else if(pnode == 4) then
+  dh(1,1) = -(1 - pgauss(igauss,1,2))/4.0 !dh1/dxi
+  dh(1,2) = -(1 - pgauss(igauss,2,2))/4.0 !dh1/deta
+  dh(2,1) = (1 - pgauss(igauss,1,2))/4.0  !dh2/dxi
+  dh(2,2) = -(1 + pgauss(igauss,2,2))/4.0  !dh2/deta
+  dh(3,1) = (1 + pgauss(igauss,1,2))/4.0  !dh3/dxi
+  dh(3,2) = (1 + pgauss(igauss,2,2))/4.0  !dh3/deta
+  dh(4,1) = -(1 + pgauss(igauss,1,2))/4.0  !dh4/dxi
+  dh(4,2) = (1 - pgauss(igauss,2,2))/4.0 !dh4/deta
+end if
+
+end subroutine derivs
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+subroutine shapefunc(pnode,igauss,gpsha)
+
+implicit none
+
+integer*4, intent(in) :: pnode,igauss
+real*8, dimension(4), intent(out) :: gpsha
+
+gpsha = 0.0D0
+if (pnode == 3) then
+    gpsha(1) = 1 - pgauss(igauss,1,pnode-2) - pgauss(igauss,2,pnode-2) 
+    gpsha(2) = pgauss(igauss,1,pnode-2)
+    gpsha(3) = pgauss(igauss,2,pnode-2)
+else if(pnode == 4) then
+    gpsha(1) = (1 - pgauss(igauss,1,pnode-2))*(1 - pgauss(igauss,2,pnode-2))/4.0
+    gpsha(2) = (1 + pgauss(igauss,1,pnode-2))*(1 - pgauss(igauss,2,pnode-2))/4.0
+    gpsha(3) = (1 + pgauss(igauss,1,pnode-2))*(1 + pgauss(igauss,2,pnode-2))/4.0
+    gpsha(4) = (1 - pgauss(igauss,1,pnode-2))*(1 + pgauss(igauss,2,pnode-2))/4.0
+end if
+
+end subroutine shapefunc
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 subroutine deriv_and_detjac_calc()
 
 implicit none
@@ -89,21 +145,31 @@ implicit none
 real*8, dimension(3,2) :: coord_nodes
 real*8, dimension(2,2) :: inv_jac
 real*8, dimension(2,2) :: jac
+real*8, dimension(4,2) :: dh
 real*8 :: det_jac_tmp
 integer*4 :: e,i,j
+integer*4 :: pnode,ngauss
 logical :: inv_flag
 
 allocate(det_jac(num_elements_bulk,3))
 allocate(deriv(3,2,num_elements_bulk,3))
 
 do e = 1,num_elements_bulk
+  if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
+    pnode = 3
+    ngauss = 3
+  else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
+    pnode = 4
+    ngauss = 4
+  end if
   coord_nodes(1,1) = nodes(elements_bulk(e,6),2)
   coord_nodes(1,2) = nodes(elements_bulk(e,6),3)
   coord_nodes(2,1) = nodes(elements_bulk(e,7),2)
   coord_nodes(2,2) = nodes(elements_bulk(e,7),3)
   coord_nodes(3,1) = nodes(elements_bulk(e,8),2)
   coord_nodes(3,2) = nodes(elements_bulk(e,8),3)
-  do i = 1,3 !GAUSS POINT LOOP
+  do i = 1,ngauss !GAUSS POINT LOOP
+    call derivs(pnode,i,dh)
     jac = 0.0D0
     do j = 1,3
       jac(1,1) = jac(1,1) + coord_nodes(j,1)*dh(j,1)
@@ -134,26 +200,32 @@ subroutine vmass_calc()
 
 implicit none
 
-integer*4 :: e,i,inode,ipoin
-real*8, dimension(3) :: numer,gpsha
+integer*4 :: e,i,inode,ipoin,pnode,ngauss
+real*8, dimension(4) :: numer,gpsha
 real*8 :: gpvol
 
 allocate(vmass(num_nodes))
 
 do e = 1,num_elements_bulk
+
+  if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
+    pnode = 3
+    ngauss = 3
+  else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
+    pnode = 4
+    ngauss = 4
+  end if
+
   numer = 0
-  do i = 1,3 !GAUSS POINT LOOP
+  do i = 1,ngauss !GAUSS POINT LOOP
     gpvol = 0.0D0
-    gpvol = det_jac(e,i)*weight(i)
-    gpsha = 0.0D0
-    gpsha(1) = 1 - pgauss(i,1) - pgauss(i,2) 
-    gpsha(2) = pgauss(i,1)
-    gpsha(3) = pgauss(i,2)
-    do inode = 1,3
+    gpvol = det_jac(e,i)*weight(i,pnode-2)
+    call shapefunc(pnode,i,gpsha)
+    do inode = 1,pnode
       numer(inode) = numer(inode) + gpvol * gpsha(inode)
     end do
   end do
-  do inode = 1,3
+  do inode = 1,pnode
     ipoin = elements_bulk(e,5+inode)
     vmass(ipoin) = vmass(ipoin) + numer(inode)
   end do
@@ -222,9 +294,10 @@ real*8, dimension(2,2) :: ST
 real*8 :: gpinv
 real*8 :: gpvol
 real*8 :: xmean
-real*8, dimension(3) :: gpsha
+real*8, dimension(4) :: gpsha
 integer*4 :: ipoin, ivoigt 
 integer*4, dimension(3,2) :: nvgij
+integer*4 :: pnode,ngauss 
 
 if (.not. stress_calc_on) then
 allocate(k_tot(num_nodes*2,num_nodes*2))
@@ -257,6 +330,14 @@ displ_ele = 0.0D0
 
 do e = 1,num_elements_bulk
 
+  if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
+    pnode = 3
+    ngauss = 3
+  else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
+    pnode = 4
+    ngauss = 4
+  end if
+
   k_elem = 0.0D0
   r_elem = 0.0D0
 
@@ -267,7 +348,7 @@ do e = 1,num_elements_bulk
   displ_ele(5) = displ(elements_bulk(e,8)*2-1)
   displ_ele(6) = displ(elements_bulk(e,8)*2)
 
-  do i = 1,3 !GAUSS POINT LOOP
+  do i = 1,ngauss !GAUSS POINT LOOP
     !DEFORMATION GRADIENT TENSOR
     F = 0.0D0
     F(1,1) = 1 + (deriv(1,1,e,i)*displ_ele(1) + deriv(2,1,e,i)*displ_ele(3) + deriv(3,1,e,i)*displ_ele(5))
@@ -463,7 +544,7 @@ do e = 1,num_elements_bulk
               do jdime = 1,2
                 do ldime = 1,2
                   k_elem(adofn,bdofn) = k_elem(adofn,bdofn) + &
-                  dPdF(idime,jdime,kdime,ldime)*deriv(anode,jdime,e,i)*deriv(bnode,ldime,e,i)*weight(i)*det_jac(e,i)
+                  dPdF(idime,jdime,kdime,ldime)*deriv(anode,jdime,e,i)*deriv(bnode,ldime,e,i)*weight(i,pnode-2)*det_jac(e,i)
                 end do
               end do
             end do
@@ -477,7 +558,7 @@ do e = 1,num_elements_bulk
         do idime = 1,2
           idofn = idofn + 1
           do jdime = 1,2
-            r_elem(idofn) = r_elem(idofn) - P(idime,jdime)*deriv(inode,jdime,e,i)*weight(i)*det_jac(e,i)
+            r_elem(idofn) = r_elem(idofn) - P(idime,jdime)*deriv(inode,jdime,e,i)*weight(i,pnode-2)*det_jac(e,i)
           end do
         end do
       end do
@@ -496,12 +577,9 @@ do e = 1,num_elements_bulk
       end do
 
       !STRAIN AND STRESS CALCULATION (IN VOIGT NOTATION) - ALYA'S VARIABLE IS caust_sld AND green_sld
-      gpvol = det_jac(e,i)*weight(i) 
-      gpsha = 0.0D0
-      gpsha(1) = 1 - pgauss(i,1) - pgauss(i,2) 
-      gpsha(2) = pgauss(i,1)
-      gpsha(3) = pgauss(i,2)
-      do inode = 1,3
+      gpvol = det_jac(e,i)*weight(i,pnode-2) 
+      call shapefunc(pnode,i,gpsha)
+      do inode = 1,pnode
         ipoin = elements_bulk(e,5+inode)
         xmean = gpsha(inode)*gpvol
         do ivoigt = 1,3
@@ -575,7 +653,6 @@ subroutine dealloca_init()
 deallocate(det_jac)
 deallocate(deriv)
 deallocate(vmass)
-deallocate(dh)
 deallocate(weight)
 deallocate(pgauss)
 deallocate(plane)
