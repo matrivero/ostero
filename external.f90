@@ -58,21 +58,21 @@ pgauss(2,2,1) = 0.16667
 pgauss(3,1,1) = 0.16667
 pgauss(3,2,1) = 0.66667
 
-pgauss(1,1,2) = -0.57735026918 
-pgauss(1,2,2) = -0.57735026918 
-pgauss(2,1,2) = 0.57735026918 
-pgauss(2,2,2) = -0.57735026918 
-pgauss(3,1,2) = 0.57735026918 
-pgauss(3,2,2) = 0.57735026918 
-pgauss(4,1,2) = -0.57735026918 
-pgauss(4,2,2) = 0.57735026918 
+pgauss(1,1,2) = -0.577350269189626 
+pgauss(1,2,2) = -0.577350269189626 
+pgauss(2,1,2) = 0.577350269189626 
+pgauss(2,2,2) = -0.577350269189626 
+pgauss(3,1,2) = 0.577350269189626 
+pgauss(3,2,2) = 0.577350269189626 
+pgauss(4,1,2) = -0.577350269189626 
+pgauss(4,2,2) = 0.577350269189626 
 
 allocate(plane(num_elements_bulk))
 allocate(lame1_mu(num_elements_bulk))
 allocate(lame2_lambda(num_elements_bulk))
 
 allocate(nodes(num_nodes,4))
-allocate(elements_bulk(num_elements_bulk,8))
+allocate(elements_bulk(num_elements_bulk,9))
 
 allocate(displ(num_nodes*2))
 
@@ -142,7 +142,7 @@ subroutine deriv_and_detjac_calc()
 
 implicit none
 
-real*8, dimension(3,2) :: coord_nodes
+real*8, dimension(4,2) :: coord_nodes
 real*8, dimension(2,2) :: inv_jac
 real*8, dimension(2,2) :: jac
 real*8, dimension(4,2) :: dh
@@ -151,27 +151,36 @@ integer*4 :: e,i,j
 integer*4 :: pnode,ngauss
 logical :: inv_flag
 
-allocate(det_jac(num_elements_bulk,3))
-allocate(deriv(3,2,num_elements_bulk,3))
+allocate(det_jac(num_elements_bulk,4))
+allocate(deriv(4,2,num_elements_bulk,4))
 
 do e = 1,num_elements_bulk
   if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
     pnode = 3
     ngauss = 3
+    coord_nodes(1,1) = nodes(elements_bulk(e,6),2)
+    coord_nodes(1,2) = nodes(elements_bulk(e,6),3)
+    coord_nodes(2,1) = nodes(elements_bulk(e,7),2)
+    coord_nodes(2,2) = nodes(elements_bulk(e,7),3)
+    coord_nodes(3,1) = nodes(elements_bulk(e,8),2)
+    coord_nodes(3,2) = nodes(elements_bulk(e,8),3)
   else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
     pnode = 4
     ngauss = 4
+    coord_nodes(1,1) = nodes(elements_bulk(e,6),2)
+    coord_nodes(1,2) = nodes(elements_bulk(e,6),3)
+    coord_nodes(2,1) = nodes(elements_bulk(e,7),2)
+    coord_nodes(2,2) = nodes(elements_bulk(e,7),3)
+    coord_nodes(3,1) = nodes(elements_bulk(e,8),2)
+    coord_nodes(3,2) = nodes(elements_bulk(e,8),3)
+    coord_nodes(4,1) = nodes(elements_bulk(e,9),2)
+    coord_nodes(4,2) = nodes(elements_bulk(e,9),3)
   end if
-  coord_nodes(1,1) = nodes(elements_bulk(e,6),2)
-  coord_nodes(1,2) = nodes(elements_bulk(e,6),3)
-  coord_nodes(2,1) = nodes(elements_bulk(e,7),2)
-  coord_nodes(2,2) = nodes(elements_bulk(e,7),3)
-  coord_nodes(3,1) = nodes(elements_bulk(e,8),2)
-  coord_nodes(3,2) = nodes(elements_bulk(e,8),3)
+
   do i = 1,ngauss !GAUSS POINT LOOP
     call derivs(pnode,i,dh)
     jac = 0.0D0
-    do j = 1,3
+    do j = 1,pnode
       jac(1,1) = jac(1,1) + coord_nodes(j,1)*dh(j,1)
       jac(1,2) = jac(1,2) + coord_nodes(j,2)*dh(j,1)
       jac(2,1) = jac(2,1) + coord_nodes(j,1)*dh(j,2)
@@ -183,7 +192,7 @@ do e = 1,num_elements_bulk
       stop
     end if
     det_jac(e,i) = abs(det_jac_tmp)
-    do j = 1,3
+    do j = 1,pnode
       deriv(j,1,e,i) = dh(j,1)*inv_jac(1,1) + dh(j,2)*inv_jac(1,2)
       deriv(j,2,e,i) = dh(j,1)*inv_jac(2,1) + dh(j,2)*inv_jac(2,2)
     end do 
@@ -270,7 +279,7 @@ subroutine assembly()
 
 implicit none
 
-real*8, dimension(6) :: displ_ele
+real*8, dimension(8) :: displ_ele
 integer*4 :: e,i,j,k,l,m,n,o
 real*8, dimension(2,2) :: inv_F
 logical :: inv_flag
@@ -284,8 +293,8 @@ real*8, dimension(2,2,2,2) :: D
 real*8, dimension(2,2,2,2) :: dPdF
 integer*4 :: anode,bnode,inode,adofn,bdofn,idofn
 integer*4 :: idime,jdime,kdime,ldime
-real*8, dimension(6,6) :: k_elem
-real*8, dimension(6) :: r_elem
+real*8, dimension(8,8) :: k_elem
+real*8, dimension(8) :: r_elem
 real*8 :: det_F
 real*8, dimension(2,2) :: F
 real*8, dimension(2,2) :: P
@@ -333,28 +342,46 @@ do e = 1,num_elements_bulk
   if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
     pnode = 3
     ngauss = 3
+    displ_ele(1) = displ(elements_bulk(e,6)*2-1)
+    displ_ele(2) = displ(elements_bulk(e,6)*2)
+    displ_ele(3) = displ(elements_bulk(e,7)*2-1)
+    displ_ele(4) = displ(elements_bulk(e,7)*2)
+    displ_ele(5) = displ(elements_bulk(e,8)*2-1)
+    displ_ele(6) = displ(elements_bulk(e,8)*2)
   else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
     pnode = 4
     ngauss = 4
+    displ_ele(1) = displ(elements_bulk(e,6)*2-1)
+    displ_ele(2) = displ(elements_bulk(e,6)*2)
+    displ_ele(3) = displ(elements_bulk(e,7)*2-1)
+    displ_ele(4) = displ(elements_bulk(e,7)*2)
+    displ_ele(5) = displ(elements_bulk(e,8)*2-1)
+    displ_ele(6) = displ(elements_bulk(e,8)*2)
+    displ_ele(7) = displ(elements_bulk(e,9)*2-1)
+    displ_ele(8) = displ(elements_bulk(e,9)*2)
   end if
 
   k_elem = 0.0D0
   r_elem = 0.0D0
 
-  displ_ele(1) = displ(elements_bulk(e,6)*2-1)
-  displ_ele(2) = displ(elements_bulk(e,6)*2)
-  displ_ele(3) = displ(elements_bulk(e,7)*2-1)
-  displ_ele(4) = displ(elements_bulk(e,7)*2)
-  displ_ele(5) = displ(elements_bulk(e,8)*2-1)
-  displ_ele(6) = displ(elements_bulk(e,8)*2)
-
   do i = 1,ngauss !GAUSS POINT LOOP
     !DEFORMATION GRADIENT TENSOR
     F = 0.0D0
-    F(1,1) = 1 + (deriv(1,1,e,i)*displ_ele(1) + deriv(2,1,e,i)*displ_ele(3) + deriv(3,1,e,i)*displ_ele(5))
-    F(1,2) = deriv(1,2,e,i)*displ_ele(1) + deriv(2,2,e,i)*displ_ele(3) + deriv(3,2,e,i)*displ_ele(5)
-    F(2,1) = deriv(1,1,e,i)*displ_ele(2) + deriv(2,1,e,i)*displ_ele(4) + deriv(3,1,e,i)*displ_ele(6)
-    F(2,2) = 1 + (deriv(1,2,e,i)*displ_ele(2) + deriv(2,2,e,i)*displ_ele(4) + deriv(3,2,e,i)*displ_ele(6))
+    if (pnode == 3) then
+      F(1,1) = 1 + (deriv(1,1,e,i)*displ_ele(1) + deriv(2,1,e,i)*displ_ele(3) + deriv(3,1,e,i)*displ_ele(5))
+      F(1,2) = deriv(1,2,e,i)*displ_ele(1) + deriv(2,2,e,i)*displ_ele(3) + deriv(3,2,e,i)*displ_ele(5)
+      F(2,1) = deriv(1,1,e,i)*displ_ele(2) + deriv(2,1,e,i)*displ_ele(4) + deriv(3,1,e,i)*displ_ele(6)
+      F(2,2) = 1 + (deriv(1,2,e,i)*displ_ele(2) + deriv(2,2,e,i)*displ_ele(4) + deriv(3,2,e,i)*displ_ele(6))
+    else if (pnode == 4) then
+      F(1,1) = 1 + (deriv(1,1,e,i)*displ_ele(1) + deriv(2,1,e,i)*displ_ele(3) + deriv(3,1,e,i)*displ_ele(5) +&
+                    deriv(4,1,e,i)*displ_ele(7))
+      F(1,2) = deriv(1,2,e,i)*displ_ele(1) + deriv(2,2,e,i)*displ_ele(3) + deriv(3,2,e,i)*displ_ele(5) +&
+                    deriv(4,2,e,i)*displ_ele(7)
+      F(2,1) = deriv(1,1,e,i)*displ_ele(2) + deriv(2,1,e,i)*displ_ele(4) + deriv(3,1,e,i)*displ_ele(6) +&
+                    deriv(4,1,e,i)*displ_ele(8)
+      F(2,2) = 1 + (deriv(1,2,e,i)*displ_ele(2) + deriv(2,2,e,i)*displ_ele(4) + deriv(3,2,e,i)*displ_ele(6) +&
+                    deriv(4,2,e,i)*displ_ele(8))
+    end if
     call m22inv(F, inv_F, det_F, inv_flag)
     if (det_F < 1.0E-12) then
       write(*,*) "NEGATIVE GPDET IN ELEMENT",e
@@ -535,10 +562,10 @@ do e = 1,num_elements_bulk
    
     if (.not. stress_calc_on) then
       !ELEMENTAL TANGENT STIFFNESS MATRIX
-      do anode = 1,3
+      do anode = 1,pnode
         do idime = 1,2
           adofn = (anode-1)*2+idime
-          do bnode = 1,3
+          do bnode = 1,pnode
             do kdime = 1,2
               bdofn = (bnode-1)*2+kdime
               do jdime = 1,2
@@ -553,7 +580,7 @@ do e = 1,num_elements_bulk
       end do
 
       !ELEMENTAL RESIDUAL VECTOR
-      do inode = 1,3
+      do inode = 1,pnode
         idofn = (inode-1)*2
         do idime = 1,2
           idofn = idofn + 1
@@ -595,8 +622,8 @@ do e = 1,num_elements_bulk
 
   if (.not. stress_calc_on) then
     !GLOBAL TANGENT STIFFNESS MATRIX
-    do i = 1,3
-      do j = 1,3
+    do i = 1,pnode
+      do j = 1,pnode
         k_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)-1) = & !k_tot(u1,u1)
           k_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)-1) + k_elem((2*i)-1,(2*j)-1)
         k_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)) = & !k_tot(u1,v1)
@@ -609,7 +636,7 @@ do e = 1,num_elements_bulk
     end do
 
     !GLOBAL RESIDUAL VECTOR
-    do i = 1,3
+    do i = 1,pnode
       r_tot((elements_bulk(e,(5+i))*2)-1) = r_tot((elements_bulk(e,(5+i))*2)-1) + r_elem((2*i)-1)
       r_tot(elements_bulk(e,(5+i))*2) = r_tot(elements_bulk(e,(5+i))*2) + r_elem(2*i)
     end do

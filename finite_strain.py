@@ -116,12 +116,17 @@ for line in boundary_file:
 				name = name.replace('"','')
 				boundary_condition_press[name].append(eval(pressure))
 				# LINK BETWEEN BOUNDARY ELEMENTS AND VOLUME ELEMENTS
-				for eg in element_groups[physical_names[name][1]]:
-					for vo in volume_conditions:
-						for eg2 in element_groups[physical_names[vo][1]]:
-							if ((eg[5] == eg2[5]) or (eg[5] == eg2[6]) or (eg[5] == eg2[7])) and \
-								((eg[6] == eg2[5]) or (eg[6] == eg2[6]) or (eg[6] == eg2[7])):
-								link_boundary_volume_elem[name].append(int(eg2[0]))
+				for eg in element_groups[physical_names[name][1]]: #forall pressure boundary elements 
+					for vo in volume_conditions: #forall volume domains
+						for eg2 in element_groups[physical_names[vo][1]]: #forall volume elements
+							if eg2[1] == 2: #TRIANGLE ELEMENT
+								if ((eg[5] == eg2[5]) or (eg[5] == eg2[6]) or (eg[5] == eg2[7])) and \
+									((eg[6] == eg2[5]) or (eg[6] == eg2[6]) or (eg[6] == eg2[7])):
+									link_boundary_volume_elem[name].append(int(eg2[0]))
+							elif eg2[1] == 3: #QUAD ELEMENT
+								if ((eg[5] == eg2[5]) or (eg[5] == eg2[6]) or (eg[5] == eg2[7]) or (eg[5] == eg2[8])) and \
+									((eg[6] == eg2[5]) or (eg[6] == eg2[6]) or (eg[6] == eg2[7]) or (eg[6] == eg2[8])):
+									link_boundary_volume_elem[name].append(int(eg2[0]))
 boundary_file.close()
 
 nodes = np.array(nodes)
@@ -236,15 +241,19 @@ for z in range(int(total_steps)):
 				tangent_y = tangent_y/length_bound_elem
 				normal_x = normal_x/norm_normal
 				normal_y = normal_y/norm_normal
-				# CHECK NORMAL DIRECTION
+				# CHECK NORMAL DIRECTION IF IT IS INWARDS (NOT OK) OR OUTWARDS (OK)
 				offset_elem_bulk = elements_bulk[0][0]
 				center_of_mass_x = 0
 				center_of_mass_y = 0
-				for node in range(3):
+				if elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][1] == 2: #TRIANGLE ELEMENT
+					pnode = 3
+				elif elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][1] == 3: #QUAD ELEMENT
+					pnode = 4
+				for node in range(pnode):
 					center_of_mass_x += nodes[elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][5+node] - 1][1]
 					center_of_mass_y += nodes[elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][5+node] - 1][2]
-				center_of_mass_x = center_of_mass_x/3
-				center_of_mass_y = center_of_mass_y/3
+				center_of_mass_x = center_of_mass_x/pnode
+				center_of_mass_y = center_of_mass_y/pnode
 				dot_prod = (center_of_mass_x - coord_nodes[0][0])*normal_x + (center_of_mass_y -coord_nodes[0][1])*normal_y 
 				if dot_prod > 0:
 					normal_x = -normal_x

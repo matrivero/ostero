@@ -24,23 +24,45 @@ def writeoutput(argumen,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,
 	vtkfile_ini.write(' ')
 	vtkfile_ini.write(str(num_elements_bulk))
 	vtkfile_ini.write(' ')
-	vtkfile_ini.write(str(num_elements_bulk*4))
+	num_tets = 0
+	num_quads = 0
+	for i in range(num_elements_bulk):
+		if elements_bulk[i][1] == 2: #TRIANGLE ELEMENT
+			num_tets = num_tets + 1
+		elif elements_bulk[i][1] == 3: #QUAD ELEMENT
+			num_quads = num_quads + 1
+	vtkfile_ini.write(str(num_tets*4 + num_quads*5)) #CUIDADO ACA!!!! ARREGLAR ESTO
 	vtkfile_ini.write('\n')
 	for i in range(num_elements_bulk):
-		vtkfile_ini.write('3')
-		vtkfile_ini.write(' ')
-		vtkfile_ini.write(str(int(elements_bulk[i][5])-1))
-		vtkfile_ini.write(' ')
-		vtkfile_ini.write(str(int(elements_bulk[i][6])-1))
-		vtkfile_ini.write(' ')	
-		vtkfile_ini.write(str(int(elements_bulk[i][7])-1))
-		vtkfile_ini.write('\n')	
+		if elements_bulk[i][1] == 2: #TRIANGLE ELEMENT
+			vtkfile_ini.write('3')
+			vtkfile_ini.write(' ')
+			vtkfile_ini.write(str(int(elements_bulk[i][5])-1))
+			vtkfile_ini.write(' ')
+			vtkfile_ini.write(str(int(elements_bulk[i][6])-1))
+			vtkfile_ini.write(' ')	
+			vtkfile_ini.write(str(int(elements_bulk[i][7])-1))
+			vtkfile_ini.write('\n')	
+		elif elements_bulk[i][1] == 3: #QUAD ELEMENT
+			vtkfile_ini.write('4')
+			vtkfile_ini.write(' ')
+			vtkfile_ini.write(str(int(elements_bulk[i][5])-1))
+			vtkfile_ini.write(' ')
+			vtkfile_ini.write(str(int(elements_bulk[i][6])-1))
+			vtkfile_ini.write(' ')	
+			vtkfile_ini.write(str(int(elements_bulk[i][7])-1))
+			vtkfile_ini.write(' ')	
+			vtkfile_ini.write(str(int(elements_bulk[i][8])-1))
+			vtkfile_ini.write('\n')	
 	vtkfile_ini.write('CELL_TYPES')
 	vtkfile_ini.write(' ')
 	vtkfile_ini.write(str(num_elements_bulk))
 	vtkfile_ini.write('\n')
 	for i in range(num_elements_bulk):
-		vtkfile_ini.write('5 \n')
+		if elements_bulk[i][1] == 2: #TRIANGLE ELEMENT
+			vtkfile_ini.write('5 \n')
+		elif elements_bulk[i][1] == 3: #QUAD ELEMENT
+			vtkfile_ini.write('9 \n')
 	vtkfile_ini.write('POINT_DATA')
 	vtkfile_ini.write(' ')
 	vtkfile_ini.write(str(num_nodes))
