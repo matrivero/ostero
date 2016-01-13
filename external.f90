@@ -71,6 +71,8 @@ allocate(lame2_lambda(num_elements_bulk))
 allocate(nodes(num_nodes,4))
 allocate(elements_bulk(num_elements_bulk,8))
 
+allocate(displ(num_nodes*2))
+
 if (model == 'ISOL') print *,"ISOLINEAL MATERIAL MODEL" 
 if (model == 'BELY') print *,"BELYTSCHKO / NEO-HOOKEAN MATERIAL MODEL" 
 if (model == 'ZIEN') print *,"ZIENKIEWICZ / NEO-HOOKEAN MATERIAL MODEL" 
@@ -581,6 +583,7 @@ deallocate(lame1_mu)
 deallocate(lame2_lambda)
 deallocate(nodes)
 deallocate(elements_bulk)
+deallocate(displ)
 
 end subroutine dealloca_init
 
