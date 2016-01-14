@@ -40,9 +40,9 @@ subroutine init()
 
 allocate(weight(4,2))
 weight = 0.0D0
-weight(1,1) = 0.16667
-weight(2,1) = 0.16667
-weight(3,1) = 0.16667
+weight(1,1) = 1.0/6.0
+weight(2,1) = 1.0/6.0
+weight(3,1) = 1.0/6.0
 
 weight(1,2) = 1.0
 weight(2,2) = 1.0
@@ -51,12 +51,12 @@ weight(4,2) = 1.0
 
 allocate(pgauss(4,2,2))
 pgauss = 0.0D0
-pgauss(1,1,1) = 0.16667
-pgauss(1,2,1) = 0.16667
-pgauss(2,1,1) = 0.66667
-pgauss(2,2,1) = 0.16667
-pgauss(3,1,1) = 0.16667
-pgauss(3,2,1) = 0.66667
+pgauss(1,1,1) = 1.0/6.0
+pgauss(1,2,1) = 1.0/6.0
+pgauss(2,1,1) = 2.0/3.0
+pgauss(2,2,1) = 1.0/6.0
+pgauss(3,1,1) = 1.0/6.0
+pgauss(3,2,1) = 2.0/3.0
 
 pgauss(1,1,2) = -0.577350269189626 
 pgauss(1,2,2) = -0.577350269189626 
@@ -94,21 +94,21 @@ real*8, dimension(4,2), intent(out) :: dh
 
 dh = 0.0D0
 if (pnode == 3) then
-  dh(1,1) = -1 !dh1/dxi
-  dh(1,2) = -1 !dh1/deta
-  dh(2,1) = 1 !dh2/dxi
-  dh(2,2) = 0 !dh2/deta
-  dh(3,1) = 0 !dh3/dxi
-  dh(3,2) = 1 !dh3/deta
+  dh(1,1) = -1 !dh1/deta
+  dh(1,2) = -1 !dh1/dxi
+  dh(2,1) = 1 !dh2/deta
+  dh(2,2) = 0 !dh2/dxi
+  dh(3,1) = 0 !dh3/deta
+  dh(3,2) = 1 !dh3/dxi
 else if(pnode == 4) then
-  dh(1,1) = -(1 - pgauss(igauss,1,2))/4.0 !dh1/dxi
-  dh(1,2) = -(1 - pgauss(igauss,2,2))/4.0 !dh1/deta
-  dh(2,1) = (1 - pgauss(igauss,1,2))/4.0  !dh2/dxi
-  dh(2,2) = -(1 + pgauss(igauss,2,2))/4.0  !dh2/deta
-  dh(3,1) = (1 + pgauss(igauss,1,2))/4.0  !dh3/dxi
-  dh(3,2) = (1 + pgauss(igauss,2,2))/4.0  !dh3/deta
-  dh(4,1) = -(1 + pgauss(igauss,1,2))/4.0  !dh4/dxi
-  dh(4,2) = (1 - pgauss(igauss,2,2))/4.0 !dh4/deta
+  dh(1,1) = -(1 - pgauss(igauss,2,2))/4.0 !dh1/eta
+  dh(1,2) = -(1 - pgauss(igauss,1,2))/4.0 !dh1/xi
+  dh(2,1) = (1 - pgauss(igauss,2,2))/4.0  !dh2/eta
+  dh(2,2) = -(1 + pgauss(igauss,1,2))/4.0  !dh2/xi
+  dh(3,1) = (1 + pgauss(igauss,2,2))/4.0  !dh3/eta
+  dh(3,2) = (1 + pgauss(igauss,1,2))/4.0  !dh3/xi
+  dh(4,1) = -(1 + pgauss(igauss,2,2))/4.0  !dh4/deta
+  dh(4,2) = (1 - pgauss(igauss,1,2))/4.0 !dh4/dxi
 end if
 
 end subroutine derivs
@@ -124,9 +124,9 @@ real*8, dimension(4), intent(out) :: gpsha
 
 gpsha = 0.0D0
 if (pnode == 3) then
-    gpsha(1) = 1 - pgauss(igauss,1,pnode-2) - pgauss(igauss,2,pnode-2) 
-    gpsha(2) = pgauss(igauss,1,pnode-2)
-    gpsha(3) = pgauss(igauss,2,pnode-2)
+    gpsha(1) = 1 - pgauss(igauss,1,pnode-2) - pgauss(igauss,2,pnode-2) !1-eta-xi 
+    gpsha(2) = pgauss(igauss,1,pnode-2) !eta
+    gpsha(3) = pgauss(igauss,2,pnode-2) !xi
 else if(pnode == 4) then
     gpsha(1) = (1 - pgauss(igauss,1,pnode-2))*(1 - pgauss(igauss,2,pnode-2))/4.0
     gpsha(2) = (1 + pgauss(igauss,1,pnode-2))*(1 - pgauss(igauss,2,pnode-2))/4.0
