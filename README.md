@@ -1,6 +1,6 @@
 # Description #
 
-Ostero is a finite element code that solves the equilibrium equation which governs the non-linear mechanics of a deformable body. In other words, Ostero allows to determine the response of a deformable solid body to an applied load. 
+Ostero is a finite element code that solves the equilibrium equation which governs the non-linear mechanics of a deformable body subjected to large deformations. In other words, Ostero allows to determine the response of a deformable solid body to an applied load. 
 
 Ostero intends to be a didactic code, and its main objective is to allow the user to understand the very basic structure of a non-linear mechanics finite elements code and to provide a framework for the beta testing of different models (elastic material models, contact models, fracture, plasticity, etc.). 
 
