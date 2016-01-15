@@ -40,32 +40,32 @@ subroutine init()
 
 allocate(weight(4,2))
 weight = 0.0D0
-weight(1,1) = 1.0/6.0
-weight(2,1) = 1.0/6.0
-weight(3,1) = 1.0/6.0
+weight(1,1) = 0.166666666666666D0
+weight(2,1) = 0.166666666666666D0
+weight(3,1) = 0.166666666666666D0
 
-weight(1,2) = 1.0
-weight(2,2) = 1.0
-weight(3,2) = 1.0
-weight(4,2) = 1.0
+weight(1,2) = 1.0D0
+weight(2,2) = 1.0D0
+weight(3,2) = 1.0D0
+weight(4,2) = 1.0D0
 
 allocate(pgauss(4,2,2))
 pgauss = 0.0D0
-pgauss(1,1,1) = 1.0/6.0
-pgauss(1,2,1) = 1.0/6.0
-pgauss(2,1,1) = 2.0/3.0
-pgauss(2,2,1) = 1.0/6.0
-pgauss(3,1,1) = 1.0/6.0
-pgauss(3,2,1) = 2.0/3.0
+pgauss(1,1,1) = 0.166666666666666D0
+pgauss(1,2,1) = 0.166666666666666D0
+pgauss(2,1,1) = 0.666666666666666D0
+pgauss(2,2,1) = 0.166666666666666D0
+pgauss(3,1,1) = 0.166666666666666D0
+pgauss(3,2,1) = 0.666666666666666D0
 
-pgauss(1,1,2) = -0.577350269189626 
-pgauss(1,2,2) = -0.577350269189626 
-pgauss(2,1,2) = 0.577350269189626 
-pgauss(2,2,2) = -0.577350269189626 
-pgauss(3,1,2) = 0.577350269189626 
-pgauss(3,2,2) = 0.577350269189626 
-pgauss(4,1,2) = -0.577350269189626 
-pgauss(4,2,2) = 0.577350269189626 
+pgauss(1,1,2) = -0.577350269189626D0 
+pgauss(1,2,2) = -0.577350269189626D0 
+pgauss(2,1,2) = 0.577350269189626D0 
+pgauss(2,2,2) = -0.577350269189626D0 
+pgauss(3,1,2) = 0.577350269189626D0 
+pgauss(3,2,2) = 0.577350269189626D0 
+pgauss(4,1,2) = -0.577350269189626D0 
+pgauss(4,2,2) = 0.577350269189626D0 
 
 allocate(plane(num_elements_bulk))
 allocate(lame1_mu(num_elements_bulk))
@@ -94,21 +94,21 @@ real*8, dimension(4,2), intent(out) :: dh
 
 dh = 0.0D0
 if (pnode == 3) then
-  dh(1,1) = -1 !dh1/deta
-  dh(1,2) = -1 !dh1/dxi
-  dh(2,1) = 1 !dh2/deta
-  dh(2,2) = 0 !dh2/dxi
-  dh(3,1) = 0 !dh3/deta
-  dh(3,2) = 1 !dh3/dxi
+  dh(1,1) = -1D0 !dh1/deta
+  dh(1,2) = -1D0 !dh1/dxi
+  dh(2,1) = 1D0 !dh2/deta
+  dh(2,2) = 0D0 !dh2/dxi
+  dh(3,1) = 0D0 !dh3/deta
+  dh(3,2) = 1D0 !dh3/dxi
 else if(pnode == 4) then
-  dh(1,1) = -(1 - pgauss(igauss,2,2))/4.0 !dh1/eta
-  dh(1,2) = -(1 - pgauss(igauss,1,2))/4.0 !dh1/xi
-  dh(2,1) = (1 - pgauss(igauss,2,2))/4.0  !dh2/eta
-  dh(2,2) = -(1 + pgauss(igauss,1,2))/4.0  !dh2/xi
-  dh(3,1) = (1 + pgauss(igauss,2,2))/4.0  !dh3/eta
-  dh(3,2) = (1 + pgauss(igauss,1,2))/4.0  !dh3/xi
-  dh(4,1) = -(1 + pgauss(igauss,2,2))/4.0  !dh4/deta
-  dh(4,2) = (1 - pgauss(igauss,1,2))/4.0 !dh4/dxi
+  dh(1,1) = -(1D0 - pgauss(igauss,2,2))/4.0D0 !dh1/eta
+  dh(1,2) = -(1D0 - pgauss(igauss,1,2))/4.0D0 !dh1/xi
+  dh(2,1) = (1D0 - pgauss(igauss,2,2))/4.0D0  !dh2/eta
+  dh(2,2) = -(1D0 + pgauss(igauss,1,2))/4.0D0  !dh2/xi
+  dh(3,1) = (1D0 + pgauss(igauss,2,2))/4.0D0  !dh3/eta
+  dh(3,2) = (1D0 + pgauss(igauss,1,2))/4.0D0  !dh3/xi
+  dh(4,1) = -(1D0 + pgauss(igauss,2,2))/4.0D0  !dh4/deta
+  dh(4,2) = (1D0 - pgauss(igauss,1,2))/4.0D0 !dh4/dxi
 end if
 
 end subroutine derivs
@@ -124,14 +124,14 @@ real*8, dimension(4), intent(out) :: gpsha
 
 gpsha = 0.0D0
 if (pnode == 3) then
-    gpsha(1) = 1 - pgauss(igauss,1,pnode-2) - pgauss(igauss,2,pnode-2) !1-eta-xi 
+    gpsha(1) = 1D0 - pgauss(igauss,1,pnode-2) - pgauss(igauss,2,pnode-2) !1-eta-xi 
     gpsha(2) = pgauss(igauss,1,pnode-2) !eta
     gpsha(3) = pgauss(igauss,2,pnode-2) !xi
 else if(pnode == 4) then
-    gpsha(1) = (1 - pgauss(igauss,1,pnode-2))*(1 - pgauss(igauss,2,pnode-2))/4.0
-    gpsha(2) = (1 + pgauss(igauss,1,pnode-2))*(1 - pgauss(igauss,2,pnode-2))/4.0
-    gpsha(3) = (1 + pgauss(igauss,1,pnode-2))*(1 + pgauss(igauss,2,pnode-2))/4.0
-    gpsha(4) = (1 - pgauss(igauss,1,pnode-2))*(1 + pgauss(igauss,2,pnode-2))/4.0
+    gpsha(1) = (1D0 - pgauss(igauss,1,pnode-2))*(1D0 - pgauss(igauss,2,pnode-2))/4.0D0
+    gpsha(2) = (1D0 + pgauss(igauss,1,pnode-2))*(1D0 - pgauss(igauss,2,pnode-2))/4.0D0
+    gpsha(3) = (1D0 + pgauss(igauss,1,pnode-2))*(1D0 + pgauss(igauss,2,pnode-2))/4.0D0
+    gpsha(4) = (1D0 - pgauss(igauss,1,pnode-2))*(1D0 + pgauss(igauss,2,pnode-2))/4.0D0
 end if
 
 end subroutine shapefunc
@@ -368,18 +368,18 @@ do e = 1,num_elements_bulk
     !DEFORMATION GRADIENT TENSOR
     F = 0.0D0
     if (pnode == 3) then
-      F(1,1) = 1 + (deriv(1,1,e,i)*displ_ele(1) + deriv(2,1,e,i)*displ_ele(3) + deriv(3,1,e,i)*displ_ele(5))
+      F(1,1) = 1D0 + (deriv(1,1,e,i)*displ_ele(1) + deriv(2,1,e,i)*displ_ele(3) + deriv(3,1,e,i)*displ_ele(5))
       F(1,2) = deriv(1,2,e,i)*displ_ele(1) + deriv(2,2,e,i)*displ_ele(3) + deriv(3,2,e,i)*displ_ele(5)
       F(2,1) = deriv(1,1,e,i)*displ_ele(2) + deriv(2,1,e,i)*displ_ele(4) + deriv(3,1,e,i)*displ_ele(6)
-      F(2,2) = 1 + (deriv(1,2,e,i)*displ_ele(2) + deriv(2,2,e,i)*displ_ele(4) + deriv(3,2,e,i)*displ_ele(6))
+      F(2,2) = 1D0 + (deriv(1,2,e,i)*displ_ele(2) + deriv(2,2,e,i)*displ_ele(4) + deriv(3,2,e,i)*displ_ele(6))
     else if (pnode == 4) then
-      F(1,1) = 1 + (deriv(1,1,e,i)*displ_ele(1) + deriv(2,1,e,i)*displ_ele(3) + deriv(3,1,e,i)*displ_ele(5) +&
+      F(1,1) = 1D0 + (deriv(1,1,e,i)*displ_ele(1) + deriv(2,1,e,i)*displ_ele(3) + deriv(3,1,e,i)*displ_ele(5) +&
                     deriv(4,1,e,i)*displ_ele(7))
       F(1,2) = deriv(1,2,e,i)*displ_ele(1) + deriv(2,2,e,i)*displ_ele(3) + deriv(3,2,e,i)*displ_ele(5) +&
                     deriv(4,2,e,i)*displ_ele(7)
       F(2,1) = deriv(1,1,e,i)*displ_ele(2) + deriv(2,1,e,i)*displ_ele(4) + deriv(3,1,e,i)*displ_ele(6) +&
                     deriv(4,1,e,i)*displ_ele(8)
-      F(2,2) = 1 + (deriv(1,2,e,i)*displ_ele(2) + deriv(2,2,e,i)*displ_ele(4) + deriv(3,2,e,i)*displ_ele(6) +&
+      F(2,2) = 1D0 + (deriv(1,2,e,i)*displ_ele(2) + deriv(2,2,e,i)*displ_ele(4) + deriv(3,2,e,i)*displ_ele(6) +&
                     deriv(4,2,e,i)*displ_ele(8))
     end if
     call m22inv(F, inv_F, det_F, inv_flag)
@@ -594,7 +594,7 @@ do e = 1,num_elements_bulk
     if (stress_calc_on) then
       !ST (SIGMA FOR EACH GAUSS POINT) - ALYA'S VARIABLE IS sigma
       ST = 0.0D0
-      gpinv = 1.0/det_F
+      gpinv = 1.0D0/det_F
       do j = 1,2
         do k = 1,2
           do l = 1,2
