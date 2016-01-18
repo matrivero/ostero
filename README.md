@@ -65,3 +65,5 @@ In the boundary file there are only three keywords:
 ![ostero_complete.png](https://bitbucket.org/repo/a69BrG/images/1379224850-ostero_complete.png)
 
 **If you have any doubt, problem or suggestion please don't hesitate to contact me: matias.rivero(at)bsc.es **
+
+Ostero is licensed under [GNU GPLv3](http://www.gnu.org/copyleft/gpl.html)
