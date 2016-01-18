@@ -4,7 +4,7 @@ Ostero is a finite element code that solves implicitly the equilibrium equation 
 
 Ostero intends to be a didactic code, and its main objective is to allow the user to understand the very basic structure of a non-linear mechanics finite elements code and to provide a framework for the beta testing of different models (elastic material models, contact models, fracture, plasticity, etc.). 
 
-Ostero is based on the solidz module of the [Alya code](www.bsc.es/alya) and so far it can solve 2D problems using triangles or quadrilateral elements and an isolinear or neo-hookean material model.
+Ostero is based on the solidz module of the [Alya code](http://www.bsc.es/alya) and so far it can solve 2D problems using triangles or quadrilateral elements and an isolinear or neo-hookean material model.
 
 Ostero can read mesh files generated using [Gmsh](http://gmsh.info) and write ouputs in Vtk ASCII format, which can easily be postprocessed with [Paraview](http://www.paraview.org).
 
