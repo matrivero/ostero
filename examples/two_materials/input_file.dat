@@ -1,0 +1,4 @@
+mesh_path two_materials.msh
+constitutive_model ISOL
+time_step_size 0.01
+total_steps 5
