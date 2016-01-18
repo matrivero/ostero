@@ -22,7 +22,7 @@ To start using Ostero, first you need to compile the external Fortran library by
 f2py -c -m external external.f90
 ```
 
-Once you have check the external library was generated (external.so), you are ready to execute the example cases. First change the directory to the example folder i.e.:
+Once you have checked the external library was generated (external.so), you are ready to execute the example cases. First change the directory to the example folder i.e.:
 
 ```
 #!bash
@@ -58,16 +58,22 @@ In the boundary file there are only three keywords:
 
 # Some results obtained with Ostero... #
 
+Pressure (top) + Fixed displacement (bottom) - Triangles
 ![ostero_square_with_hole.png](https://bitbucket.org/repo/a69BrG/images/1213456489-ostero_square_with_hole.png)
 
+Pressure (top) + Fixed displacement (bottom) - Quads
 ![ostero_square_quads.png](https://bitbucket.org/repo/a69BrG/images/857170256-ostero_square_quads.png)
 
+Pressure + Finite displacement + Fixed displacement - Triangles
 ![ostero_complete.png](https://bitbucket.org/repo/a69BrG/images/1379224850-ostero_complete.png)
 
-**If you have any doubt, problem or suggestion please don't hesitate to contact me: matias.rivero(at)bsc.es **
+Two materials: Pressure (top) + Fixed displacement (bottom) - Triangles
+![ostero_two_materials.png](https://bitbucket.org/repo/a69BrG/images/3766508879-ostero_two_materials.png)
 
 Ostero is licensed under [GNU GPLv3](http://www.gnu.org/copyleft/gpl.html)
 
 Ostero comes with ABSOLUTELY NO WARRANTY. 
 
-Ostero is free software, and you are welcome to redistribute it under certain conditions. 
+Ostero is free software, and you are welcome to redistribute it under certain conditions.
+
+**If you have any doubt, problem or suggestion please don't hesitate to contact me: matias.rivero(at)bsc.es **
