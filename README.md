@@ -67,3 +67,7 @@ In the boundary file there are only three keywords:
 **If you have any doubt, problem or suggestion please don't hesitate to contact me: matias.rivero(at)bsc.es **
 
 Ostero is licensed under [GNU GPLv3](http://www.gnu.org/copyleft/gpl.html)
+
+Ostero comes with ABSOLUTELY NO WARRANTY. 
+
+Ostero is free software, and you are welcome to redistribute it under certain conditions. 
