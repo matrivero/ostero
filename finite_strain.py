@@ -93,6 +93,21 @@ for line in mshfile:
 				element_groups[line[3]].append(line)
 mshfile.close()
 
+#CHECK IF IS A 2D or 3D CASE
+accum_x = 0.0
+accum_y = 0.0
+accum_z = 0.0
+for node in range(num_nodes):
+	accum_x = accum_x + nodes[node][1]
+	accum_y = accum_y + nodes[node][2]
+	accum_z = accum_z + nodes[node][3]
+if ((accum_x == 0.0) or (accum_y == 0.0) or (accum_z == 0.0)):
+	ndime = 2
+else:
+	ndime = 3
+	print "3D cases: available soon"
+	sys.exit()
+
 #READ BOUNDARY FILE
 volume_conditions = defaultdict(list)
 boundary_condition_disp = defaultdict(list)
@@ -133,7 +148,7 @@ for line in boundary_file:
 				(name, pressure) = line.split()
 				name = name.replace('"','')
 				boundary_condition_press[name].append(eval(pressure))
-				# LINK BETWEEN BOUNDARY ELEMENTS AND VOLUME ELEMENTS
+				# LINK BETWEEN BOUNDARY ELEMENTS AND VOLUME ELEMENTS FOR 2D MESHES (2D to 1D)
 				for eg in element_groups[physical_names[name][1]]: #forall pressure boundary elements 
 					for vo in volume_conditions: #forall volume domains
 						for eg2 in element_groups[physical_names[vo][1]]: #forall volume elements
