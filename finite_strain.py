@@ -21,7 +21,6 @@
 import sys
 import math
 import numpy as np
-import matplotlib.pyplot as plt
 import writeout
 from collections import defaultdict
 import external
