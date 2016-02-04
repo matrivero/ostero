@@ -19,11 +19,41 @@
 #matias.rivero@bsc.es
 
 import sys
+sys.path.insert(0,"/home/matute/Desktop/mpi4py-1.3.1/Execs/lib/python/")
+from mpi4py import MPI 
+
 import math
 import numpy as np
 import writeout
 from collections import defaultdict
 import external
+
+#=================================================================| Mpi4py |===#
+sys.path.append("/home/matute/Desktop/PLE_2016ENE28/LIBPLEPP/Wrappers/Python")
+sys.path.append("/home/matute/Desktop/code_saturne-3.3.4/Execs/lib/")
+import Commdomm
+
+print (MPI.get_vendor())
+# Open MPI all handles are pointers
+# MPICH2 they are plain 'int'.
+
+world_comm = MPI.COMM_WORLD
+world_rank = world_comm.Get_rank()
+world_size = world_comm.Get_size()
+
+app_type = "ostero FEM code"
+app_name = sys.argv[0]
+CD = Commdomm.CommDom() 
+CD.init() 
+CD.set_app_type(app_type);
+CD.set_app_name(app_name);
+CD.set_world_comm(world_comm)
+
+local_comm = MPI.COMM_NULL
+local_comm = CD.set_mpi_comms()
+local_comm.Barrier()
+local_rank = local_comm.Get_rank()
+#=========================================================================||===#
 
 #PRINT USAGE IF THERE ARE LESS THAN TWO ARGUMENTS
 if (len(sys.argv) < 3):
