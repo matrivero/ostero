@@ -1,5 +1,6 @@
 mesh_path square_quads_small.msh
+geometrical_treatment NONLINEAR
 constitutive_model ISOL
+sub_model PLANE_STRESS
 time_step_size 0.01
 total_steps 5
-space_dimensions 2

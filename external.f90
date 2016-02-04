@@ -29,9 +29,8 @@ real*8, allocatable, dimension(:,:) :: weight
 
 !inputs assembly
 real*8, allocatable, dimension(:) :: displ
-real*8, allocatable, dimension(:) :: lame1_mu
-real*8, allocatable, dimension(:) :: lame2_lambda
-real*8, allocatable, dimension(:) :: plane
+real*8, allocatable, dimension(:) :: young
+real*8, allocatable, dimension(:) :: poisson
 logical :: stress_calc_on
 
 !outputs deriv_and_detjac_calc
@@ -48,6 +47,7 @@ real*8, allocatable, dimension(:,:) :: strain
 real*8, allocatable, dimension(:,:) :: stress
 
 character(len=4) :: model
+character(len=12) :: submodel
 
 contains
 
@@ -84,19 +84,13 @@ pgauss(3,2,2) = 0.577350269189626D0
 pgauss(4,1,2) = -0.577350269189626D0 
 pgauss(4,2,2) = 0.577350269189626D0 
 
-allocate(plane(num_elements_bulk))
-allocate(lame1_mu(num_elements_bulk))
-allocate(lame2_lambda(num_elements_bulk))
+allocate(young(num_elements_bulk))
+allocate(poisson(num_elements_bulk))
 
 allocate(nodes(num_nodes,4))
 allocate(elements_bulk(num_elements_bulk,9))
 
 allocate(displ(num_nodes*2))
-
-if (model == 'ISOL') print *,"ISOLINEAL MATERIAL MODEL" 
-if (model == 'BELY') print *,"BELYTSCHKO / NEO-HOOKEAN MATERIAL MODEL" 
-if (model == 'ZIEN') print *,"ZIENKIEWICZ / NEO-HOOKEAN MATERIAL MODEL" 
-if (model == 'LAUR') print *,"LAURSEN / NEO-HOOKEAN MATERIAL MODEL" 
 
 end subroutine init
 
@@ -231,6 +225,7 @@ real*8, dimension(4) :: numer,gpsha
 real*8 :: gpvol
 
 allocate(vmass(num_nodes))
+vmass = 0.0D0
 
 do e = 1,num_elements_bulk
 
@@ -292,7 +287,7 @@ end subroutine m22inv
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-subroutine assembly()
+subroutine assembly_nonlinear()
 
 implicit none
 
@@ -324,12 +319,13 @@ real*8, dimension(4) :: gpsha
 integer*4 :: ipoin, ivoigt 
 integer*4, dimension(3,2) :: nvgij
 integer*4 :: pnode,ngauss 
+real*8 :: lame2_lambda,lame1_mu,plane
 
 if (.not. stress_calc_on) then
-allocate(k_tot(num_nodes*2,num_nodes*2))
-allocate(r_tot(num_nodes*2))
-k_tot = 0.0D0
-r_tot = 0.0D0
+  allocate(k_tot(num_nodes*2,num_nodes*2))
+  allocate(r_tot(num_nodes*2))
+  k_tot = 0.0D0
+  r_tot = 0.0D0
 end if
 
 if (stress_calc_on) then
@@ -355,7 +351,18 @@ nvgij(3,2) = 2
 displ_ele = 0.0D0
 
 do e = 1,num_elements_bulk
-
+  
+  lame2_lambda = poisson(e)*young(e)/((1+poisson(e))*(1-2*poisson(e))) 
+  lame1_mu = young(e)/(2*(1+poisson(e)))
+  if ((model == 'ISOL') .and. (submodel == 'PLANE_STRESS')) then
+    plane = (1.0-2.0*poisson(e))/(1.0-poisson(e))
+  else if ((model == 'ISOL') .and. (submodel == 'PLANE_STRAIN')) then
+    plane = 1.0D0
+  else if (model == 'ISOL') then
+    print *, "You need a submodel for ISOLIN model: PLANE_STRESS or PLANE_STRAIN... bye!"
+    stop
+  end if
+  
   if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
     pnode = 3
     ngauss = 3
@@ -443,12 +450,12 @@ do e = 1,num_elements_bulk
     end do
     
     !!!!!!START ISOLIN MODEL!!!!!!
-    if (model == 'ISOL') then
+    if (model == 'ISOL')  then
       !SECOND PIOLA-KIRCHHOFF STRESS TENSOR
       S = 0.0D0
       do j = 1,2
         do k = 1,2
-          S(j,k) = lame2_lambda(e)*plane(e)*traceE*delta_kron(j,k) + 2.0*lame1_mu(e)*Et(j,k)
+          S(j,k) = lame2_lambda*plane*traceE*delta_kron(j,k) + 2.0*lame1_mu*Et(j,k)
         end do
       end do 
     
@@ -458,22 +465,21 @@ do e = 1,num_elements_bulk
         do k = 1,2
           do l = 1,2
             do m = 1,2
-              D(j,k,l,m) = lame2_lambda(e)*plane(e)*delta_kron(j,k)*delta_kron(l,m) + & 
-                         lame1_mu(e)*(delta_kron(j,l)*delta_kron(k,m) + delta_kron(j,m)*delta_kron(k,l))
+              D(j,k,l,m) = lame2_lambda*plane*delta_kron(j,k)*delta_kron(l,m) + & 
+                         lame1_mu*(delta_kron(j,l)*delta_kron(k,m) + delta_kron(j,m)*delta_kron(k,l))
             end do 
           end do
         end do
       end do 
-    end if
     !!!!!!END ISOLIN MODEL!!!!!!
     
     !!!!!!START BELYTSCHKO MODEL - NEO-HOOKEAN MATERIAL (AS IMPLEMENTED IN ALYA)!!!!!!
-    if (model == 'BELY') then 
+    else if (model == 'BELY') then 
       !SECOND PIOLA-KIRCHHOFF STRESS TENSOR
       S = 0.0D0
       do j = 1,2
         do k = 1,2
-          S(j,k) = S(j,k) + (lame2_lambda(e)*log(det_F)-lame1_mu(e))*inv_Cau(j,k) + lame1_mu(e)*delta_kron(j,k)
+          S(j,k) = S(j,k) + (lame2_lambda*log(det_F)-lame1_mu)*inv_Cau(j,k) + lame1_mu*delta_kron(j,k)
         end do
       end do
 
@@ -483,24 +489,23 @@ do e = 1,num_elements_bulk
         do k = 1,2
           do l = 1,2
             do m = 1,2
-              D(j,k,l,m) = lame2_lambda(e)*inv_Cau(j,k)*inv_Cau(l,m) + & 
-              (lame1_mu(e)-lame2_lambda(e)*log(det_F))*(inv_Cau(j,l)*inv_Cau(k,m) + &
+              D(j,k,l,m) = lame2_lambda*inv_Cau(j,k)*inv_Cau(l,m) + & 
+              (lame1_mu-lame2_lambda*log(det_F))*(inv_Cau(j,l)*inv_Cau(k,m) + &
               inv_Cau(j,m)*inv_Cau(k,l))
             end do
           end do
         end do
       end do
-    end if
     !!!!!!END BELYTSCHKO MODEL!!!!!!
     
     !!!!!!START ZIENKIEWICZ MODEL - NEO-HOOKEAN MATERIAL - ZIENKIEWICZ VOL. 2, PAG. 341!!!!!!
-    if (model == 'ZIEN') then 
+    else if (model == 'ZIEN') then 
       !SECOND PIOLA-KIRCHHOFF STRESS TENSOR
       S = 0.0D0
-      S(1,1) = lame1_mu(e)*(1-inv_Cau(1,1)) + lame2_lambda(e)*det_F*(det_F-1)*inv_Cau(1,1)
-      S(1,2) = lame1_mu(e)*(-inv_Cau(1,2)) + lame2_lambda(e)*det_F*(det_F-1)*inv_Cau(1,2)
-      S(2,1) = lame1_mu(e)*(-inv_Cau(2,1)) + lame2_lambda(e)*det_F*(det_F-1)*inv_Cau(2,1)
-      S(2,2) = lame1_mu(e)*(1-inv_Cau(2,2)) + lame2_lambda(e)*det_F*(det_F-1)*inv_Cau(2,2)
+      S(1,1) = lame1_mu*(1-inv_Cau(1,1)) + lame2_lambda*det_F*(det_F-1)*inv_Cau(1,1)
+      S(1,2) = lame1_mu*(-inv_Cau(1,2)) + lame2_lambda*det_F*(det_F-1)*inv_Cau(1,2)
+      S(2,1) = lame1_mu*(-inv_Cau(2,1)) + lame2_lambda*det_F*(det_F-1)*inv_Cau(2,1)
+      S(2,2) = lame1_mu*(1-inv_Cau(2,2)) + lame2_lambda*det_F*(det_F-1)*inv_Cau(2,2)
 
       !MATERIAL TANGENT MODULI
       D = 0.0D0
@@ -508,25 +513,24 @@ do e = 1,num_elements_bulk
         do k = 1,2
           do l = 1,2
             do m = 1,2
-              D(j,k,l,m) = lame2_lambda(e)*det_F*(2*det_F-1)*inv_Cau(j,k)*inv_Cau(l,m) + & 
-              (lame1_mu(e)-lame2_lambda(e)*det_F*(det_F-1))*(inv_Cau(j,l)*inv_Cau(k,m)+ &
+              D(j,k,l,m) = lame2_lambda*det_F*(2*det_F-1)*inv_Cau(j,k)*inv_Cau(l,m) + & 
+              (lame1_mu-lame2_lambda*det_F*(det_F-1))*(inv_Cau(j,l)*inv_Cau(k,m)+ &
               inv_Cau(j,m)*inv_Cau(k,l))
             end do
           end do
         end do
       end do
-    end if
     !!!!!!END ZIENKIEWICZ MODEL!!!!!!
 
     !!!!!!START LAURSEN MODEL - NEO-HOOKEAN MATERIAL - LAURSEN'S CONTACT BOOK, PAG. 34!!!!!!
-    if (model == 'LAUR') then 
+    else if (model == 'LAUR') then 
       !SECOND PIOLA-KIRCHHOFF STRESS TENSOR
       S = 0.0D0
       do j = 1,2
         do k = 1,2
-          S(j,k) = lame1_mu(e)*(delta_kron(j,k) - &
+          S(j,k) = lame1_mu*(delta_kron(j,k) - &
                    (inv_F(j,1)*inv_F(k,1) + inv_F(j,2)*inv_F(k,2))) + &
-                   lame2_lambda(e)/2*(det_F*det_F - 1)*(inv_F(j,1)*inv_F(k,1)+inv_F(j,2)*inv_F(k,2))
+                   lame2_lambda/2*(det_F*det_F - 1)*(inv_F(j,1)*inv_F(k,1)+inv_F(j,2)*inv_F(k,2))
         end do
       end do
 
@@ -536,19 +540,23 @@ do e = 1,num_elements_bulk
         do k = 1,2
           do l = 1,2
             do m = 1,2
-              D(j,k,l,m) = 2*lame1_mu(e)*(1 + (lame2_lambda(e)/(2*lame1_mu(e)))*(1 - &
+              D(j,k,l,m) = 2*lame1_mu*(1 + (lame2_lambda/(2*lame1_mu))*(1 - &
               det_F*det_F))*( inv_F(j,1)*inv_F(k,1)*inv_F(l,1)*inv_F(m,1) + &
               inv_F(j,2)*inv_F(k,2)*inv_F(l,2)*inv_F(m,2) + inv_F(j,1)*inv_F(k,2)* &
               inv_F(l,1)*inv_F(m,2) + inv_F(j,2)*inv_F(k,1)*inv_F(l,2)*inv_F(m,1) ) + &
-              lame2_lambda(e)*det_F*det_F*( inv_F(j,1)*inv_F(k,1)*inv_F(l,1)*inv_F(m,1) + &
+              lame2_lambda*det_F*det_F*( inv_F(j,1)*inv_F(k,1)*inv_F(l,1)*inv_F(m,1) + &
               inv_F(j,2)*inv_F(k,2)*inv_F(l,2)*inv_F(m,2) + &
               inv_F(j,1)*inv_F(k,1)*inv_F(l,2)*inv_F(m,2) + inv_F(j,2)*inv_F(k,2)*inv_F(l,1)*inv_F(m,1) )
             end do
           end do
         end do
       end do
-    end if
     !!!!!!END LAURSEN MODEL!!!!!!
+
+    else
+      print*, "Check model name... bye!"
+      stop
+    end if
 
     !FIRST PIOLA-KIRCHHOFF STRESS TENSOR
     P = 0.0D0
@@ -670,7 +678,205 @@ if (stress_calc_on) then
   end do
 end if
 
-end subroutine assembly
+end subroutine assembly_nonlinear
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+subroutine assembly_linear()
+
+implicit none
+
+real*8, dimension(8) :: displ_ele
+real*8, dimension(8,8) :: k_elem
+real*8, dimension(8) :: r_elem
+real*8, dimension(3,8) :: B
+real*8, dimension(8,3) :: Bt
+real*8, dimension(3,3) :: C
+real*8, dimension(3,8) :: TMP
+real*8, dimension(4) :: gpsha
+real*8, dimension(3) :: strain_elem
+real*8 :: gpvol, xmean
+integer*4 :: e, i, j, k, l, m
+integer*4 :: pnode, ngauss, inode, ivoigt, ipoin
+
+if (.not. stress_calc_on) then
+  allocate(k_tot(num_nodes*2,num_nodes*2))
+  allocate(r_tot(num_nodes*2))
+  k_tot = 0.0D0
+  r_tot = 0.0D0
+end if
+
+if (stress_calc_on) then
+  allocate(stress(3,num_nodes))
+  allocate(strain(3,num_nodes))
+  stress = 0.0D0
+  strain = 0.0D0
+end if
+
+displ_ele = 0.0D0
+
+do e = 1,num_elements_bulk
+  
+  if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
+    pnode = 3
+    ngauss = 3
+  else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
+    pnode = 4
+    ngauss = 4
+  end if
+
+  if (stress_calc_on) then
+    if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
+      displ_ele(1) = displ(elements_bulk(e,6)*2-1)
+      displ_ele(2) = displ(elements_bulk(e,6)*2)
+      displ_ele(3) = displ(elements_bulk(e,7)*2-1)
+      displ_ele(4) = displ(elements_bulk(e,7)*2)
+      displ_ele(5) = displ(elements_bulk(e,8)*2-1)
+      displ_ele(6) = displ(elements_bulk(e,8)*2)
+    else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
+      displ_ele(1) = displ(elements_bulk(e,6)*2-1)
+      displ_ele(2) = displ(elements_bulk(e,6)*2)
+      displ_ele(3) = displ(elements_bulk(e,7)*2-1)
+      displ_ele(4) = displ(elements_bulk(e,7)*2)
+      displ_ele(5) = displ(elements_bulk(e,8)*2-1)
+      displ_ele(6) = displ(elements_bulk(e,8)*2)
+      displ_ele(7) = displ(elements_bulk(e,9)*2-1)
+      displ_ele(8) = displ(elements_bulk(e,9)*2)
+    end if
+    strain_elem = 0.0D0
+  end if
+
+  if (submodel == 'PLANE_STRESS') then 
+
+    !PLANE STRESS, ISOTROPIC MATERIAL (SIGZZ = 0.0)
+    !ZIENKIEWICZ, VOL. 1, PAG. 90
+    C(1,1) = (young(e)/(1.0D0-poisson(e)**2))*1.0D0 
+    C(1,2) = (young(e)/(1.0D0-poisson(e)**2))*poisson(e)
+    C(1,3) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
+    C(2,1) = (young(e)/(1.0D0-poisson(e)**2))*poisson(e)
+    C(2,2) = (young(e)/(1.0D0-poisson(e)**2))*1.0D0 
+    C(2,3) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
+    C(3,1) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
+    C(3,2) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
+    C(3,3) = (young(e)/(1.0D0-poisson(e)**2))*(1-poisson(e))/2.0D0
+
+  else if(submodel == 'PLANE_STRAIN') then  
+
+    !PLANE STRAIN, ISOTROPIC MATERIAL (SIGZZ != 0.0)
+    !ZIENKIEWICZ, VOL. 1, PAG. 91
+    C(1,1) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*(1-poisson(e))
+    C(1,2) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*poisson(e)
+    C(1,3) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0
+    C(2,1) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*poisson(e)
+    C(2,2) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*(1-poisson(e))
+    C(2,3) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0 
+    C(3,1) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0
+    C(3,2) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0
+    C(3,3) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*(1-2.0D0*poisson(e))/2.0D0
+
+  else
+
+    write(*,*) "In LINEAR treatment you need to specify a submodel: PLANE_STRESS or PLANE_STRAIN... bye!"
+    stop
+
+  end if
+
+  k_elem = 0.0D0
+  r_elem = 0.0D0
+
+  do i = 1,ngauss
+
+    do inode = 1,pnode !B assembly
+
+      B(1,2*inode-1) = deriv(inode,1,e,i) !dh_inode/dx
+      B(1,2*inode)   = 0.0D0 
+      B(2,2*inode-1) = 0.0D0
+      B(2,2*inode)   = deriv(inode,2,e,i) !dh_inode/dy
+      B(3,2*inode-1) = deriv(inode,2,e,i) !dh_inode/dy
+      B(3,2*inode)   = deriv(inode,1,e,i) !dh_inode/dx
+
+    end do !end do pnode
+
+    do k = 1,3
+      do m = 1,(2*pnode)
+        Bt(m,k) = B(k,m)
+      end do
+    end do
+
+    TMP = 0.0D0
+    do k = 1,3
+      do m = 1,(2*pnode)
+        do l = 1,3
+          TMP(k,m) = TMP(k,m) + C(k,l)*B(l,m)
+        end do
+      end do
+    end do
+
+    if (.not. stress_calc_on) then
+      do k = 1,(2*pnode)
+        do m = 1,(2*pnode)
+          do l = 1,3
+            k_elem(k,m) = k_elem(k,m) + Bt(k,l)*TMP(l,m)*det_jac(e,i)*weight(i,pnode-2)
+          end do
+        end do
+      end do
+    end if
+
+    if (stress_calc_on) then
+      gpvol = det_jac(e,i)*weight(i,pnode-2) 
+      call shapefunc(pnode,i,gpsha)
+      do ivoigt = 1,3
+        do inode = 1,pnode
+          xmean = gpsha(inode)*gpvol
+          strain_elem(ivoigt) = strain_elem(ivoigt) + &
+              xmean*B(ivoigt,2*inode-1)*displ_ele(2*inode-1) + xmean*B(ivoigt,2*inode)*displ_ele(2*inode) 
+        end do
+      end do
+    end if
+
+  end do !end do ngauss
+    
+  if (.not. stress_calc_on) then
+    do i = 1,pnode
+      do j = 1,pnode
+        k_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)-1) = & !k_tot(u1,u1)
+          k_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)-1) + k_elem((2*i)-1,(2*j)-1)
+        k_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)) = & !k_tot(u1,v1)
+          k_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)) + k_elem((2*i)-1,(2*j))
+        k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)-1) = & !k_tot(v1,u1)
+          k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)-1) + k_elem((2*i),(2*j)-1)
+        k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) = & !k_tot(v1,v1)
+          k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) + k_elem((2*i),(2*j))
+      end do
+    end do
+  end if
+
+  if (stress_calc_on) then
+    do inode = 1,pnode
+      ipoin = elements_bulk(e,5+inode)
+      do ivoigt = 1,3
+        strain(ivoigt,ipoin) = strain(ivoigt,ipoin) + strain_elem(ivoigt)
+        do k = 1,3
+          stress(ivoigt,ipoin) = stress(ivoigt,ipoin) + C(ivoigt,k)*strain_elem(k)
+        end do
+      end do
+    end do
+  end if
+
+end do !end do elements
+
+if (stress_calc_on) then
+  do ipoin = 1,num_nodes
+    do ivoigt = 1,2
+      strain(ivoigt,ipoin) = strain(ivoigt,ipoin)/vmass(ipoin)
+      stress(ivoigt,ipoin) = stress(ivoigt,ipoin)/vmass(ipoin)
+    end do
+    strain(3,ipoin) = strain(3,ipoin)/vmass(ipoin)/2
+    stress(3,ipoin) = stress(3,ipoin)/vmass(ipoin)
+  end do
+end if
+
+end subroutine assembly_linear
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -699,9 +905,8 @@ deallocate(deriv)
 deallocate(vmass)
 deallocate(weight)
 deallocate(pgauss)
-deallocate(plane)
-deallocate(lame1_mu)
-deallocate(lame2_lambda)
+deallocate(young)
+deallocate(poisson)
 deallocate(nodes)
 deallocate(elements_bulk)
 deallocate(displ)
