@@ -28,7 +28,7 @@ import writeout
 from collections import defaultdict
 import external
 
-#=================================================================| Mpi4py |===#
+#=================================================================| COMMDOM |===#
 sys.path.append("/home/matute/Desktop/PLE_2016ENE28/LIBPLEPP/Wrappers/Python")
 sys.path.append("/home/matute/Desktop/code_saturne-3.3.4/Execs/lib/")
 import Commdomm
@@ -40,20 +40,7 @@ print (MPI.get_vendor())
 world_comm = MPI.COMM_WORLD
 world_rank = world_comm.Get_rank()
 world_size = world_comm.Get_size()
-
-app_type = "ostero FEM code"
-app_name = sys.argv[0]
-CD = Commdomm.CommDom() 
-CD.init() 
-CD.set_app_type(app_type);
-CD.set_app_name(app_name);
-CD.set_world_comm(world_comm)
-
-local_comm = MPI.COMM_NULL
-local_comm = CD.set_mpi_comms()
-local_comm.Barrier()
-local_rank = local_comm.Get_rank()
-#=========================================================================||===#
+#===============================================================================#
 
 #PRINT USAGE IF THERE ARE LESS THAN TWO ARGUMENTS
 if (len(sys.argv) < 3):
@@ -62,9 +49,13 @@ if (len(sys.argv) < 3):
 
 #READ INPUT FILE
 input_file = open(sys.argv[1],'r')
+case_name = 'NONAME' #default
 for line in input_file:
 	line = line.strip()
-	if line.startswith('mesh_path'):
+	if line.startswith('case_name'):
+		line = line.split()
+		case_name = line[1]
+	elif line.startswith('mesh_path'):
 		line = line.split()
 		mesh_path = line[1]
 	elif line.startswith('geometrical_treatment'):
@@ -83,6 +74,24 @@ for line in input_file:
 		line = line.split()
 		total_steps = line[1]
 input_file.close()
+
+#================================================================| COMMDOM |===#
+app_type = "ostero_FEM_code"
+app_name = case_name
+CD = Commdomm.CommDom() 
+CD.init() 
+CD.set_app_type(app_type);
+CD.set_app_name(app_name);
+CD.set_world_comm(world_comm)
+
+local_comm = MPI.COMM_NULL
+local_comm = CD.set_mpi_comms()
+local_comm.Barrier()
+local_rank = local_comm.Get_rank()
+
+namei = 'IDENTER'
+namej = 'BLOCK'
+#==============================================================================#
 
 try:
 	mesh_path
@@ -163,22 +172,22 @@ if geom_treatment == 'NONLINEAR':
 			print "Select a valid submodel for NONLINEAR geometrical treatment, ISOLIN model: PLANE_STRESS or PLANE_STRAIN... bye!"
 			sys.exit()
 		if submodel == 'PLANE_STRESS':
-			header_output = 'NONLINEAR_ISOLIN_PLANE_STRESS'
+			header_output = case_name+'_NONLINEAR_ISOLIN_PLANE_STRESS'
 			print "ISOLINEAL MATERIAL MODEL / NONLINEAR FORMULATION / PLANE STRESS APPROXIMATION"
 		elif submodel == 'PLANE_STRAIN':
-			header_output = 'NONLINEAR_ISOLIN_PLANE_STRAIN'
+			header_output = case_name+'_NONLINEAR_ISOLIN_PLANE_STRAIN'
 			print "ISOLINEAL MATERIAL MODEL / NONLINEAR FORMULATION / PLANE STRAIN APPROXIMATION"  
 		else:
 			print "You need a submodel for ISOL model: PLANE_STRESS or PLANE_STRAIN... bye!"
 			sys.exit()
 	elif model == 'BELY':
-		header_output = 'NONLINEAR_BELYTSCHKO'
+		header_output = case_name+'_NONLINEAR_BELYTSCHKO'
 		print "BELYTSCHKO's BOOK / NEO-HOOKEAN MATERIAL MODEL"
 	elif model == 'ZIEN':
-		header_output = 'NONLINEAR_ZIENKIEWICZ'
+		header_output = case_name+'_NONLINEAR_ZIENKIEWICZ'
 		print "ZIENKIEWICZ's BOOK / NEO-HOOKEAN MATERIAL MODEL" 
 	elif model == 'LAUR': 
-		header_output = 'NONLINEAR_LAURSEN'
+		header_output = case_name+'_NONLINEAR_LAURSEN'
 		print "LAURSEN's BOOK / NEO-HOOKEAN MATERIAL MODEL"
 	else:
 		print "This model is not valid for NONLINEAR geometrical treatment... bye!"
@@ -195,10 +204,10 @@ elif geom_treatment == 'LINEAR':
 		print "Select a valid submodel for LINEAR geometrical treatment: PLANE_STRESS or PLANE_STRAIN... bye!"
 		sys.exit()
 	if submodel == 'PLANE_STRESS':
-		header_output = 'LINEAR_PLANE_STRESS'
+		header_output = case_name+'_LINEAR_PLANE_STRESS'
 		print "PLANE STRESS / LINEAR FORMULATION"
 	elif submodel == 'PLANE_STRAIN':
-		header_output = 'LINEAR_PLANE_STRAIN'
+		header_output = case_name+'_LINEAR_PLANE_STRAIN'
 		print "PLANE STRAIN / LINEAR FORMULATION"
 	else:
 		print "Select a valid submodel for LINEAR geometrical treatment: PLANE_STRESS or PLANE_STRAIN... bye!"
@@ -292,6 +301,42 @@ for vo in volume_conditions:
 		poisson[ielem] = volume_conditions[vo][1]
 		ielem += 1
 
+#================================================================| COMMDOM |===#
+local_comm.Barrier()
+
+commij = MPI.COMM_NULL  
+if( (CD.__get_app_name__() == namei) and (CD.__get_friends__(namej) == 1) ):
+  commij = CD.get_mpi_commij(namej)
+if( (CD.__get_app_name__() == namej) and (CD.__get_friends__(namei) == 1) ):
+  commij = CD.get_mpi_commij(namei)
+
+n_vertices_i = num_nodes
+n_elements_i = num_elements_bulk
+n_vertices_j = num_nodes
+
+vertex_num = []
+vertex_type = []
+for el in range(num_elements_bulk):
+	if (elements_bulk[el][1] == 2): #TRIANGLE ELEMENT
+		vertex_type.append(int(10)) #---> AS ALYA TYPE
+		vertex_num.append(int(elements_bulk[el][5]))
+		vertex_num.append(int(elements_bulk[el][6]))
+		vertex_num.append(int(elements_bulk[el][7]))
+	if (elements_bulk[el][1] == 3): #QUAD ELEMENT
+		vertex_type.append(int(12)) #---> AS ALYA TYPE
+		vertex_num.append(int(elements_bulk[el][5]))
+		vertex_num.append(int(elements_bulk[el][6]))
+		vertex_num.append(int(elements_bulk[el][7]))
+		vertex_num.append(int(elements_bulk[el][8]))
+vertex_num_i = Commdomm.iarray(len(vertex_num))
+for i in range( len(vertex_num) ): vertex_num_i[i] = vertex_num[i]
+vertex_type_i = Commdomm.iarray(num_elements_bulk)
+for i in range( num_elements_bulk ): vertex_type_i[i] = vertex_type[i]
+
+vertex_coords_i = Commdomm.darray(num_nodes*ndime)
+vertex_coords_j = Commdomm.darray(num_nodes*ndime)
+#==============================================================================#
+
 weight_bounda = np.zeros((2))
 weight_bounda[0] = 1.0
 weight_bounda[1] = 1.0
@@ -334,6 +379,22 @@ external.mod_fortran.vmass_calc()
 it_counter_global = 0
 
 for z in range(int(total_steps)):
+	#==============================================================================#
+	vertex_coords = []
+	for no in range(num_nodes):
+		vertex_coords.append(nodes[no][1] + displ[2*no])
+		vertex_coords.append(nodes[no][2] + displ[2*no+1]) 
+	for i in range( len(vertex_coords) ): vertex_coords_i[i] = vertex_coords[i]
+
+	for i in range( len(vertex_coords) ): vertex_coords_j[i] = vertex_coords[i]
+
+	CD.locator_create2(local_comm, commij, 0.001)
+	CD.locator_set_cs_mesh(n_vertices_i,n_elements_i,vertex_coords_i,vertex_num_i,vertex_type_i,n_vertices_j,vertex_coords_j,ndime) 
+	CD.save_dist_coords(0, local_comm)
+	n_recv = CD.get_n_interior()
+	n_send = CD.get_n_dist_points()
+	CD.locator_destroy()
+	#==============================================================================#
 
 	print ' '
 	print 'Solving time step',z+1,'...'
