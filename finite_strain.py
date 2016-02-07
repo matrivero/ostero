@@ -378,23 +378,71 @@ external.mod_fortran.vmass_calc()
 
 it_counter_global = 0
 
+#================================================================| COMMDOM |===#
+num_max_pnode = 4
+def get_element_coords_j(vert_type_i,vert_coords_i,vert_num_i,n_dist_j,d_locations_i,d_coords_j,shfunc_j):
+	vertices_i = Commdomm.iarray(num_max_pnode)
+	vol_coords_j = Commdomm.darray(num_max_pnode)
+	point_j = np.zeros((ndime))
+	if (n_dist_j > 0): 
+		for ii in range(n_dist_j):
+			for jj in range(ndime): point_j[jj] = d_coords_j[ndime*ii + jj]
+
+			if vert_type_i[d_locations_i[ii]] == 10:
+				pnode = 3
+			elif vert_type_i[d_locations_i[ii]] == 12:
+				pnode = 4
+
+			ielem = d_locations_i[ii] - 1
+			
+			for jj in range(pnode): vertices_i[jj] = vert_num_i[pnode*ielem + jj]
+			
+			element_interpolation(vert_coords_i,vertices_i,point_j,vol_coords_j,pnode)
+			
+			for jj in range(pnode): shfunc_j[pnode*ii + jj] = vol_coords_j[jj]
+
+
+def element_interpolation(coords_all_i,vert_i,point,vol_coords,pnode):
+
+	elem_coord = np.zeros((pnode,ndime))
+
+	for ii in range(pnode):
+		coord_idx = vert_i[ii] - 1
+		for jj in range(ndime): elem_coord[ii][jj] = coords_all_i[ndime*coord_idx + jj]
+	#-----> SO FAR, SO GOOD (AT LEAST FOR TRIANGLES)
+	#-----> AT THIS POINT I HAVE THE COORDINATES OF EACH VERTEX THAT SURROUNDS THE POINT_J (THE "TACHITA" POINT)
+	#-----> NOW I HAVE TO FIND THE BARYCENTRIC COORDINATES OF THAT POINT_J INSIDE THE ELEMENT DEFINED BY elem_coord
+
+	if pnode == 3:
+		v0x = elem_coord[1][0] - elem_coord[0][0] # vertex b_x - vertex a_x 
+		v0y = elem_coord[1][1] - elem_coord[0][1] # vertex b_y - vertex a_y
+		v0 = [v0x,v0y]
+		v1x = elem_coord[2][0] - elem_coord[0][0] # vertex c_x - vertex a_x
+		v1y = elem_coord[2][1] - elem_coord[0][1] # vertex c_y - vertex a_y
+		v1 = [v1x,v1y]
+		v2x = point[0] - elem_coord[0][0] # point_j_x - vertex a_x 
+		v2y = point[1] - elem_coord[0][1] # point_j_y - vertex_a_y
+		v2 = [v2x,v2y]
+
+		d00 = np.dot(v0,v0)
+		d01 = np.dot(v0,v1)
+		d11 = np.dot(v1,v1)
+		d20 = np.dot(v2,v0)
+		d21 = np.dot(v2,v1)
+
+		denom = (d00*d11) - (d01*d01)
+		vol_coords[1] = (d11*d20 - d01*d21)/denom
+		vol_coords[2] = (d00*d21 - d01*d20)/denom
+		vol_coords[0] = 1.0 - vol_coords[1] - vol_coords[2] 
+
+	#elif pnode = 4:
+	
+						
+ 
+	
+#==============================================================================#
+
 for z in range(int(total_steps)):
-	#==============================================================================#
-	vertex_coords = []
-	for no in range(num_nodes):
-		vertex_coords.append(nodes[no][1] + displ[2*no])
-		vertex_coords.append(nodes[no][2] + displ[2*no+1]) 
-	for i in range( len(vertex_coords) ): vertex_coords_i[i] = vertex_coords[i]
-
-	for i in range( len(vertex_coords) ): vertex_coords_j[i] = vertex_coords[i]
-
-	CD.locator_create2(local_comm, commij, 0.001)
-	CD.locator_set_cs_mesh(n_vertices_i,n_elements_i,vertex_coords_i,vertex_num_i,vertex_type_i,n_vertices_j,vertex_coords_j,ndime) 
-	CD.save_dist_coords(0, local_comm)
-	n_recv = CD.get_n_interior()
-	n_send = CD.get_n_dist_points()
-	CD.locator_destroy()
-	#==============================================================================#
 
 	print ' '
 	print 'Solving time step',z+1,'...'
@@ -562,5 +610,33 @@ for z in range(int(total_steps)):
 
 	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
 	external.mod_fortran.dealloca_stress_strain_matrices()
+
+	#================================================================| COMMDOM |===#
+	vertex_coords = []
+	for no in range(num_nodes):
+		vertex_coords.append(nodes[no][1] + displ[2*no])
+		vertex_coords.append(nodes[no][2] + displ[2*no+1]) 
+	for i in range( len(vertex_coords) ): vertex_coords_i[i] = vertex_coords[i]
+	for i in range( len(vertex_coords) ): vertex_coords_j[i] = vertex_coords[i]
+
+	CD.locator_create2(local_comm, commij, 0.001)
+	CD.locator_set_cs_mesh(n_vertices_i,n_elements_i,vertex_coords_i,vertex_num_i,vertex_type_i,n_vertices_j,vertex_coords_j,ndime) 
+	CD.save_dist_coords(z+1, local_comm)
+	n_recv = CD.get_n_interior()
+	n_send = CD.get_n_dist_points() # NSEND ARE THE NUMBER OF MY ELEMENTS THAT I WILL SEND TO THE OTHER CODE
+					# MY ELEMENTS WHICH HAVE AT LEAST ONE NODE OF THE OTHER CODE
+	dist_locations_i = Commdomm.iarray(n_send)
+	dist_coords_j = Commdomm.darray(n_send*ndime,)
+	CD.__locator_get_dist_locations__( dist_locations_i )  
+	CD.__locator_get_dist_coords__(    dist_coords_j    )
+        #locations = []
+        #for ii in range(n_send): locations.append( dist_locations_i[ii] ) 
+        #print app_name,n_send,locations # FOR EACH DOMAIN, THIS WILL PRINT THE ELEMENTS WHICH HAVE INSIDE NODES FORM THE OTHER DOMAIN
+
+	shapef_j = np.zeros((num_max_pnode*n_send)) # BARYCENTRIC COORDINATES - INTERPOLATION POINTS
+	get_element_coords_j(vertex_type_i,vertex_coords_i,vertex_num_i,n_send,dist_locations_i,dist_coords_j,shapef_j) 
+
+	CD.locator_destroy()
+	#==============================================================================#
 
 external.mod_fortran.dealloca_init()

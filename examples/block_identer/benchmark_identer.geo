@@ -19,7 +19,7 @@ Physical Surface("IDENTER") = {6};
 // Unstructured Boundary Layer
 Field[1] = BoundaryLayer;
 Field[1].EdgesList = {4};
-Field[1].hfar = 0.2;
-Field[1].hwall_n = 0.07;
-Field[1].hwall_t = 0.07;
+Field[1].hfar = 0.6;
+Field[1].hwall_n = 0.3;
+Field[1].hwall_t = 0.3;
 Background Field = 1;

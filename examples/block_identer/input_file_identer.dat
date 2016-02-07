@@ -1,6 +1,6 @@
+case_name IDENTER
 mesh_path benchmark_identer.msh
-geometrical_treatment NONLINEAR
-constitutive_model ISOL
+geometrical_treatment LINEAR
 sub_model PLANE_STRESS
 time_step_size 0.01
 total_steps 10
