@@ -232,6 +232,7 @@ else:
 volume_conditions = defaultdict(list)
 boundary_condition_disp = defaultdict(list)
 boundary_condition_press = defaultdict(list)
+boundary_condition_contact = defaultdict(list)
 link_boundary_volume_elem = defaultdict(list)
 boundary_file = open(sys.argv[2],'r')
 for line in boundary_file:
@@ -242,6 +243,8 @@ for line in boundary_file:
 		readmode = 2
 	elif line.startswith('$BoundaryConditionsPressure'):
 		readmode = 3
+	elif line.startswith('$BoundaryConditionsContact'):
+		readmode = 4
 	elif readmode:
 		if readmode == 1: #BULK DEFINITIONS
 			if len(line.split()) == 1:
@@ -280,6 +283,24 @@ for line in boundary_file:
 								if ((eg[5] == eg2[5]) or (eg[5] == eg2[6]) or (eg[5] == eg2[7]) or (eg[5] == eg2[8])) and \
 									((eg[6] == eg2[5]) or (eg[6] == eg2[6]) or (eg[6] == eg2[7]) or (eg[6] == eg2[8])):
 									link_boundary_volume_elem[name].append(int(eg2[0]))
+		elif readmode == 4: #CONTACT BOUNDARY DEFINITIONS
+			if len(line.split()) == 1:
+				name = line
+				boundary_condition_contact[name].append(name)
+				# LINK BETWEEN BOUNDARY ELEMENTS AND VOLUME ELEMENTS FOR 2D MESHES (2D to 1D)
+				for eg in element_groups[physical_names[name][1]]: #forall pressure boundary elements 
+					for vo in volume_conditions: #forall volume domains
+						for eg2 in element_groups[physical_names[vo][1]]: #forall volume elements
+							if eg2[1] == 2: #TRIANGLE ELEMENT
+								if ((eg[5] == eg2[5]) or (eg[5] == eg2[6]) or (eg[5] == eg2[7])) and \
+									((eg[6] == eg2[5]) or (eg[6] == eg2[6]) or (eg[6] == eg2[7])):
+									link_boundary_volume_elem[name].append(int(eg2[0]))
+							elif eg2[1] == 3: #QUAD ELEMENT
+								if ((eg[5] == eg2[5]) or (eg[5] == eg2[6]) or (eg[5] == eg2[7]) or (eg[5] == eg2[8])) and \
+									((eg[6] == eg2[5]) or (eg[6] == eg2[6]) or (eg[6] == eg2[7]) or (eg[6] == eg2[8])):
+									link_boundary_volume_elem[name].append(int(eg2[0]))
+			
+
 boundary_file.close()
 
 nodes = np.array(nodes)
@@ -312,7 +333,6 @@ if( (CD.__get_app_name__() == namej) and (CD.__get_friends__(namei) == 1) ):
 
 n_vertices_i = num_nodes
 n_elements_i = num_elements_bulk
-n_vertices_j = num_nodes
 
 vertex_num = []
 vertex_type = []
@@ -381,6 +401,7 @@ it_counter_global = 0
 #================================================================| COMMDOM |===#
 num_max_pnode = 4
 def get_element_coords_j(vert_type_i,vert_coords_i,vert_num_i,n_dist_j,d_locations_i,d_coords_j,shfunc_j):
+	
 	vertices_i = Commdomm.iarray(num_max_pnode)
 	vol_coords_j = Commdomm.darray(num_max_pnode)
 	point_j = np.zeros((ndime))
@@ -388,12 +409,11 @@ def get_element_coords_j(vert_type_i,vert_coords_i,vert_num_i,n_dist_j,d_locatio
 		for ii in range(n_dist_j):
 			for jj in range(ndime): point_j[jj] = d_coords_j[ndime*ii + jj]
 
-			if vert_type_i[d_locations_i[ii]] == 10:
-				pnode = 3
-			elif vert_type_i[d_locations_i[ii]] == 12:
-				pnode = 4
-
 			ielem = d_locations_i[ii] - 1
+			if vert_type_i[ielem] == 10:
+				pnode = 3
+			elif vert_type_i[ielem] == 12:
+				pnode = 4
 			
 			for jj in range(pnode): vertices_i[jj] = vert_num_i[pnode*ielem + jj]
 			
@@ -437,8 +457,54 @@ def element_interpolation(coords_all_i,vert_i,point,vol_coords,pnode):
 
 	#elif pnode = 4:
 	
-						
- 
+def propi2propj(propi1,propi2,propi3,vert_type_i,vert_num_i,n_dist_j,d_locations_i,shpf_j,propj1,propj2,propj3):
+
+	vertices_i = Commdomm.iarray(num_max_pnode)
+	baryc_coord = np.zeros((num_max_pnode))
+	prop1 = np.zeros((num_max_pnode*2))
+	prop2 = np.zeros((num_max_pnode*3))
+	prop3 = np.zeros((num_max_pnode*3))
+	
+	if (n_dist_j > 0): 
+		for ii in range(n_dist_j):
+			
+			ielem = d_locations_i[ii] - 1
+			if vert_type_i[ielem] == 10:
+				pnode = 3
+			elif vert_type_i[ielem] == 12:
+				pnode = 4
+			
+			for jj in range(pnode): 
+				vertices_i[jj] = vert_num_i[pnode*ielem + jj]
+				baryc_coord[jj] = shpf_j[pnode*ii + jj]
+				
+				#displ
+				prop1[2*jj] = propi1[2*(vertices_i[jj]-1)]
+				prop1[2*jj+1] = propi1[2*(vertices_i[jj]-1)+1]
+				#strain
+				prop2[3*jj] = propi2[0][vertices_i[jj]-1]
+				prop2[3*jj+1] = propi2[1][vertices_i[jj]-1]
+				prop2[3*jj+2] = propi2[2][vertices_i[jj]-1]
+				#stress
+				prop3[3*jj] = propi3[0][vertices_i[jj]-1]
+				prop3[3*jj+1] = propi3[1][vertices_i[jj]-1]
+				prop3[3*jj+2] = propi3[2][vertices_i[jj]-1]
+
+				#displ
+				propj1[2*ii] = propj1[2*ii] + baryc_coord[jj]*prop1[2*jj] 
+				propj1[2*ii+1] = propj1[2*ii+1] + baryc_coord[jj]*prop1[2*jj+1] 
+				#strain
+				propj2[3*ii] = propj2[3*ii] + baryc_coord[jj]*prop2[3*jj] 
+				propj2[3*ii+1] = propj2[3*ii+1] + baryc_coord[jj]*prop2[3*jj+1] 
+				propj2[3*ii+2] = propj2[3*ii+2] + baryc_coord[jj]*prop2[3*jj+2]  
+				#stress
+				propj3[3*ii] = propj3[3*ii] + baryc_coord[jj]*prop3[3*jj] 
+				propj3[3*ii+1] = propj3[3*ii+1] + baryc_coord[jj]*prop3[3*jj+1] 
+				propj3[3*ii+2] = propj3[3*ii+2] + baryc_coord[jj]*prop3[3*jj+2] 
+	
+				#print app_name,jj,vertices_i[jj],prop1[2*jj],prop1[2*jj+1],baryc_coord[jj]
+				#print app_name,vertices_i[jj],prop3[3*jj],prop3[3*jj+1],prop3[3*jj+2]
+				#print app_name,jj,vertices_i[jj],propj1[2*ii],propj1[2*ii+1],baryc_coord[jj]
 	
 #==============================================================================#
 
@@ -511,7 +577,7 @@ for z in range(int(total_steps)):
 					center_of_mass_y += nodes[elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][5+node] - 1][2]
 				center_of_mass_x = center_of_mass_x/pnode
 				center_of_mass_y = center_of_mass_y/pnode
-				dot_prod = (center_of_mass_x - coord_nodes[0][0])*normal_x + (center_of_mass_y -coord_nodes[0][1])*normal_y 
+				dot_prod = (center_of_mass_x - coord_nodes[0][0])*normal_x + (center_of_mass_y - coord_nodes[0][1])*normal_y 
 				if dot_prod > 0:
 					normal_x = -normal_x
 					normal_y = -normal_y
@@ -584,7 +650,7 @@ for z in range(int(total_steps)):
 
 	
 		ddispl = np.linalg.solve(k_tot,r_tot)
-		external.mod_fortran.dealloca_global_matrices()
+		#external.mod_fortran.dealloca_global_matrices()
 		if geom_treatment == 'NONLINEAR':
 			norm_ddispl = eps
 			displ_ant = displ
@@ -599,17 +665,14 @@ for z in range(int(total_steps)):
 			norm_ddispl = eps
 			print "Linear solution ok!"
 
-	external.mod_fortran.displ = displ
-	external.mod_fortran.stress_calc_on = True
-	if geom_treatment == 'NONLINEAR':	
-		external.mod_fortran.assembly_nonlinear()
-	elif geom_treatment == 'LINEAR':
-		external.mod_fortran.assembly_linear()
-	strain = external.mod_fortran.strain
-	stress = external.mod_fortran.stress
-
-	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
-	external.mod_fortran.dealloca_stress_strain_matrices()
+	#external.mod_fortran.displ = displ
+	#external.mod_fortran.stress_calc_on = True
+	#if geom_treatment == 'NONLINEAR':
+	#	external.mod_fortran.assembly_nonlinear()
+	#elif geom_treatment == 'LINEAR':
+	#	external.mod_fortran.assembly_linear()
+	#strain = external.mod_fortran.strain
+	#stress = external.mod_fortran.stress
 
 	#================================================================| COMMDOM |===#
 	vertex_coords = []
@@ -617,26 +680,333 @@ for z in range(int(total_steps)):
 		vertex_coords.append(nodes[no][1] + displ[2*no])
 		vertex_coords.append(nodes[no][2] + displ[2*no+1]) 
 	for i in range( len(vertex_coords) ): vertex_coords_i[i] = vertex_coords[i]
-	for i in range( len(vertex_coords) ): vertex_coords_j[i] = vertex_coords[i]
+
+	#for i in range( len(vertex_coords) ): vertex_coords_j[i] = vertex_coords[i]
+	#n_vertices_j = num_nodes
+	
+	#if app_name == 'BLOCK':
+	count_tmp = 0
+	id_tmp = np.zeros((num_nodes),dtype=np.int)
+	map_bound_intli = np.zeros((num_nodes),dtype=np.int)
+	for bc in boundary_condition_contact:
+		for eg in element_groups[physical_names[bc][1]]:
+			id_tmp[eg[5]-1] = 1
+			id_tmp[eg[6]-1] = 1
+	for no in range(num_nodes): 
+		if (id_tmp[no] != 0):
+			vertex_coords_j[2*int(count_tmp)] = nodes[no][1] + displ[2*no]
+			vertex_coords_j[2*int(count_tmp)+1] = nodes[no][2] + displ[2*no+1]
+			map_bound_intli[int(count_tmp)] = no+1	
+			count_tmp = count_tmp + id_tmp[no]
+	n_vertices_j = int(count_tmp)
+				
 
 	CD.locator_create2(local_comm, commij, 0.001)
 	CD.locator_set_cs_mesh(n_vertices_i,n_elements_i,vertex_coords_i,vertex_num_i,vertex_type_i,n_vertices_j,vertex_coords_j,ndime) 
-	CD.save_dist_coords(z+1, local_comm)
+	#CD.save_dist_coords(z+1, local_comm)
 	n_recv = CD.get_n_interior()
 	n_send = CD.get_n_dist_points() # NSEND ARE THE NUMBER OF MY ELEMENTS THAT I WILL SEND TO THE OTHER CODE
 					# MY ELEMENTS WHICH HAVE AT LEAST ONE NODE OF THE OTHER CODE
 	dist_locations_i = Commdomm.iarray(n_send)
-	dist_coords_j = Commdomm.darray(n_send*ndime,)
+	dist_coords_j = Commdomm.darray(n_send*ndime)
 	CD.__locator_get_dist_locations__( dist_locations_i )  
 	CD.__locator_get_dist_coords__(    dist_coords_j    )
         #locations = []
         #for ii in range(n_send): locations.append( dist_locations_i[ii] ) 
-        #print app_name,n_send,locations # FOR EACH DOMAIN, THIS WILL PRINT THE ELEMENTS WHICH HAVE INSIDE NODES FORM THE OTHER DOMAIN
+        #print app_name,n_send,locations # FOR EACH DOMAIN, THIS WILL PRINT THE ELEMENTS WHICH HAVE INSIDE NODES FROM THE OTHER DOMAIN
 
 	shapef_j = np.zeros((num_max_pnode*n_send)) # BARYCENTRIC COORDINATES - INTERPOLATION POINTS
-	get_element_coords_j(vertex_type_i,vertex_coords_i,vertex_num_i,n_send,dist_locations_i,dist_coords_j,shapef_j) 
+	get_element_coords_j(vertex_type_i,vertex_coords_i,vertex_num_i,n_send,dist_locations_i,dist_coords_j,shapef_j)
+
+	# FOR EACH APP_NAME I HAVE TO INTERPOLATE THE PROPERTIES OF THE NODES TO THE "TACHITA" POINT 
+	#displ = np.zeros((num_nodes*2))
+	#strain = np.zeros((3,num_nodes))
+	#stress = np.zeros((3,num_nodes))
+	
+	displ_ij = Commdomm.darray(n_send*ndime)
+	strain_ij = Commdomm.darray(n_send*3)
+	stress_ij = Commdomm.darray(n_send*3)
+	for ii in range(n_send*2): displ_ij[ii] = 0.0
+	for ii in range(n_send*3): strain_ij[ii] = 0.0
+	for ii in range(n_send*3): stress_ij[ii] = 0.0
+
+	displcoord = np.zeros((num_nodes*2))
+	for node in range(num_nodes):
+		displcoord[2*node] = displ[2*node] + nodes[node][1]
+		displcoord[2*node+1] = displ[2*node+1] + nodes[node][2]
+	
+	propi2propj(displcoord,strain,stress,vertex_type_i,vertex_num_i,n_send,dist_locations_i,shapef_j,displ_ij,strain_ij,stress_ij)
+
+	displ_ji = Commdomm.darray(n_recv*ndime)
+	strain_ji = Commdomm.darray(n_recv*3) 
+	stress_ji = Commdomm.darray(n_recv*3)
+	for ii in range(n_recv*2): displ_ji[ii] = 0.0
+	for ii in range(n_recv*3): strain_ji[ii] = 0.0
+	for ii in range(n_recv*3): stress_ji[ii] = 0.0
+	
+	CD.__locator_exchange_double_scalar__(displ_ij,displ_ji,2)
+	CD.__locator_exchange_double_scalar__(strain_ij,strain_ji,3)
+	CD.__locator_exchange_double_scalar__(stress_ij,stress_ji,3)
+	
+	interior_list_j = Commdomm.iarray(n_recv)
+	CD.__locator_get_interior_list__(interior_list_j)
+
+	#==============================================================================#
+
+	proje_points_ij = Commdomm.darray(n_send*ndime)
+	for ii in range(n_send*ndime): proje_points_ij[ii] = 0.0
+	proje_points_ji = Commdomm.darray(n_recv*ndime)
+	for ii in range(n_recv*ndime): proje_points_ji[ii] = 0.0
+
+	slope_boun_ij = Commdomm.darray(n_send)
+	for ii in range(n_send): slope_boun_ij[ii] = 0.0
+	slope_boun_ji = Commdomm.darray(n_recv)
+	for ii in range(n_recv): slope_boun_ji[ii] = 0.0
+
+	normal_ij = Commdomm.darray(n_send*ndime)
+	for ii in range(n_send*ndime): normal_ij[ii] = 0.0
+	normal_ji = Commdomm.darray(n_recv*ndime)
+	for ii in range(n_recv*ndime): normal_ji[ii] = 0.0
+
+	if app_name == 'IDENTER': #---> IMPOSE BOUNDARY CONDITIONS ON NODES, ONLY Y DISPLACEMENT
+		#dist_coords_j ---> coords of the other code that are inside of my geometry. need to check if are boundary nodes
+		proje_tmp = np.zeros((2))
+		acc_proje_ponts = 0
+		for isend in range(n_send):
+			for bc in boundary_condition_contact:
+				cont = 0
+				for eg in element_groups[physical_names[bc][1]]:
+					#x_coord: dist_coords_j[2*isend]
+					#y_coord: dist_coords_j[2*isend+1]
+					p1_x = nodes[eg[6]-1][1] + displ[(eg[6]-1)*2]
+					p1_y = nodes[eg[6]-1][2] + displ[(eg[6]-1)*2+1]
+					p2_x = nodes[eg[5]-1][1] + displ[(eg[5]-1)*2]
+					p2_y = nodes[eg[5]-1][2] + displ[(eg[5]-1)*2+1]
+					slope_boun = (p1_y - p2_y)/(p1_x - p2_x)
+					oo_boun = p1_y - slope_boun*p1_x
+					proje_tmp[0] = dist_coords_j[2*isend]
+					proje_tmp[1] = slope_boun*dist_coords_j[2*isend] + oo_boun
+					tangent_x = p1_x - p2_x
+					tangent_y = p1_y - p2_y
+					normal_x = tangent_y 
+					normal_y = -tangent_x
+					# CHECK NORMAL DIRECTION IF IT IS INWARDS (NOT OK) OR OUTWARDS (OK)
+					offset_elem_bulk = elements_bulk[0][0]
+					center_of_mass_x = 0
+					center_of_mass_y = 0
+					if elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][1] == 2: #TRIANGLE ELEMENT
+						pnode = 3
+					elif elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][1] == 3: #QUAD ELEMENT
+						pnode = 4
+					for node in range(pnode):
+						center_of_mass_x += nodes[elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][5+node] - 1][1]
+						center_of_mass_y += nodes[elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][5+node] - 1][2]
+					center_of_mass_x = center_of_mass_x/pnode
+					center_of_mass_y = center_of_mass_y/pnode
+					dot_prod = (center_of_mass_x - nodes[eg[5]-1][1])*normal_x + (center_of_mass_y - nodes[eg[5]-1][2])*normal_y 
+					if dot_prod > 0:
+						normal_x = -normal_x
+						normal_y = -normal_y
+						tangent_x = -tangent_x
+						tangent_y = -tangent_y
+					cont += 1
+					#########################
+					##########################################################
+					dxc = proje_tmp[0] - p2_x
+					dyc = proje_tmp[1] - p2_y
+					dxl = p1_x - p2_x
+					dyl = p1_y - p2_y
+					cross = dxc*dyl - dyc*dxl
+					if (cross < 1e-6): #check if the projected point is inside the boundary	
+						d1x = proje_tmp[0] - p2_x
+						d1y = proje_tmp[1] - p2_y
+						d1 = np.sqrt(d1x*d1x + d1y*d1y)
+						d2x = proje_tmp[0] - p1_x
+						d2y = proje_tmp[1] - p1_y
+						d2 = np.sqrt(d2x*d2x + d2y*d2y)
+						d3x = p1_x - p2_x
+						d3y = p1_y - p2_y
+						d3 = np.sqrt(d3x*d3x + d3y*d3y)
+						if ((d1 <= d3) & (d2 <= d3)):
+							proje_points_ij[2*acc_proje_ponts] = proje_tmp[0]
+							proje_points_ij[2*acc_proje_ponts+1] = proje_tmp[1]
+							slope_boun_ij[acc_proje_ponts] = slope_boun
+							normal_ij[2*acc_proje_ponts] = normal_x
+							normal_ij[2*acc_proje_ponts+1] = normal_y
+							acc_proje_ponts = acc_proje_ponts + 1
+					##########################################################
+	
+	CD.__locator_exchange_double_scalar__(proje_points_ij,proje_points_ji,2)
+	CD.__locator_exchange_double_scalar__(slope_boun_ij,slope_boun_ji,1)
+	CD.__locator_exchange_double_scalar__(normal_ij,normal_ji,2)
 
 	CD.locator_destroy()
-	#==============================================================================#
+	
+	#===============================================================================#
+
+	#if app_name == 'BLOCK':
+	#	for ii in range(n_recv):
+	#		k_tot[(point_intli-1)*2][(point_intli-1)*2] = 1.0
+	#		r_tot[(point_intli-1)*2] = 0.0
+	#		k_tot[(point_intli-1)*2+1][(point_intli-1)*2+1] = 1.0
+	#		r_tot[(point_intli-1)*2+1] = proje_points_ji[2*ii+1]-nodes[point_intli-1][2]
+	#		for nn in range(num_nodes*2):
+	#			if(nn != (point_intli-1)*2):
+	#				r_tot[nn] = r_tot[nn] - 0.0
+	#				k_tot[nn][(point_intli-1)*2] = 0.0
+	#				k_tot[(point_intli-1)*2][nn] = 0.0
+	#		for nn in range(num_nodes*2):
+	#			if(nn != (point_intli-1)*2+1):
+	#				r_tot[nn] = r_tot[nn] - k_tot[nn][(point_intli-1)*2+1]*(proje_points_ji[2*ii+1]-nodes[point_intli-1][2])
+	#				k_tot[nn][(point_intli-1)*2+1] = 0.0
+	#				k_tot[(point_intli-1)*2+1][nn] = 0.0
+	
+        #############################################################################################################
+
+	#if app_name == 'BLOCK':
+	#	BB = np.zeros((n_recv,num_nodes*2))
+	#	hh = np.zeros((n_recv))
+	#	ZZ = np.zeros((n_recv,n_recv))
+	#	for ii in range(n_recv):
+	#		point_intli = map_bound_intli[interior_list_j[ii]-1]
+	#		x_pos = (point_intli-1)*2
+	#		y_pos = (point_intli-1)*2+1
+	#		hh[ii] = proje_points_ji[2*ii+1]-nodes[point_intli-1][2]
+	#		BB[ii][x_pos] = -slope_boun_ji[ii]
+	#		BB[ii][y_pos] = 1
+	#	k_tot_block = np.bmat( [[k_tot, BB.transpose()], [BB, ZZ]] )
+	#	r_tot_block = np.concatenate( [r_tot, hh] )
+	#	
+	#if app_name == 'BLOCK':
+	#	if(n_recv == 0):
+	#		displ = np.linalg.solve(k_tot,r_tot)
+	#	else:
+	#		displ = np.linalg.solve(k_tot_block,r_tot_block)
+	#if app_name == 'IDENTER':
+	#	displ = np.linalg.solve(k_tot,r_tot)
+	
+	external.mod_fortran.displ = displ
+	external.mod_fortran.stress_calc_on = True
+	if geom_treatment == 'NONLINEAR':
+		external.mod_fortran.assembly_nonlinear()
+	elif geom_treatment == 'LINEAR':
+		external.mod_fortran.assembly_linear()
+	strain = external.mod_fortran.strain
+	stress = external.mod_fortran.stress
+
+	if app_name == 'BLOCK': release_nodes = np.zeros((num_nodes),dtype=np.int)
+
+	acc_release = 0
+	while_counter = 0
+        #############################################################################################################
+	while True:
+		if app_name == 'IDENTER':
+			break
+		if app_name == 'BLOCK':
+			while_counter += 1
+			acc_release_old = acc_release
+			acc_release = 0
+			for ii in range(n_recv):
+				point_intli = map_bound_intli[interior_list_j[ii]-1]
+				reac_x = normal_ji[2*ii]*stress[0][point_intli-1] + normal_ji[2*ii+1]*stress[2][point_intli-1]
+				reac_y = normal_ji[2*ii]*stress[2][point_intli-1] + normal_ji[2*ii+1]*stress[1][point_intli-1]
+				Rn = reac_x*normal_ji[2*ii] + reac_y*normal_ji[2*ii+1]
+				if (Rn > 0): #Rn > 0 must be released
+					release_nodes[point_intli-1] = 1
+
+			for ii in range(num_nodes):
+				acc_release += release_nodes[ii]
+
+			if ((acc_release_old >= acc_release) & (while_counter >= 2)):
+				break
+
+			BB = np.zeros((n_recv - acc_release,num_nodes*2))
+			hh = np.zeros((n_recv - acc_release))
+			ZZ = np.zeros((n_recv - acc_release,n_recv - acc_release))
+			count_tmp = 0
+			for ii in range(n_recv):
+				point_intli = map_bound_intli[interior_list_j[ii]-1]
+				if (release_nodes[point_intli-1] == 0): #apply boundary conditions
+					x_pos = (point_intli-1)*2
+					y_pos = (point_intli-1)*2+1
+					hh[count_tmp] = proje_points_ji[2*ii+1]-nodes[point_intli-1][2]
+					BB[count_tmp][x_pos] = -slope_boun_ji[ii]
+					BB[count_tmp][y_pos] = 1
+					count_tmp += 1
+			k_tot_block = np.bmat( [[k_tot, BB.transpose()], [BB, ZZ]] )
+			r_tot_block = np.concatenate( [r_tot, hh] )
+
+		if app_name == 'BLOCK':
+			if(n_recv == 0):
+				displ = np.linalg.solve(k_tot,r_tot)
+			else:
+				displ = np.linalg.solve(k_tot_block,r_tot_block)
+		if app_name == 'IDENTER':
+			displ = np.linalg.solve(k_tot,r_tot)
+
+		external.mod_fortran.dealloca_stress_strain_matrices()
+		external.mod_fortran.displ = displ
+		external.mod_fortran.stress_calc_on = True
+		if geom_treatment == 'NONLINEAR':
+			external.mod_fortran.assembly_nonlinear()
+		elif geom_treatment == 'LINEAR':
+			external.mod_fortran.assembly_linear()
+		strain = external.mod_fortran.strain
+		stress = external.mod_fortran.stress
+        #############################################################################################################
+
+
+        #############################################################################################################
+	#if app_name == 'BLOCK':
+	#	acc_release = 0
+	#	for ii in range(n_recv):
+	#		point_intli = map_bound_intli[interior_list_j[ii]-1]
+	#		reac_x = normal_ji[2*ii]*stress[0][point_intli-1] + normal_ji[2*ii+1]*stress[2][point_intli-1]
+	#		reac_y = normal_ji[2*ii]*stress[2][point_intli-1] + normal_ji[2*ii+1]*stress[1][point_intli-1]
+	#		Rn = reac_x*normal_ji[2*ii] + reac_y*normal_ji[2*ii+1]
+	#		if (Rn > 0): #Rn > 0 must be released
+	#			release_nodes[point_intli-1] = 1
+	#
+	#	for ii in range(num_nodes):
+	#		acc_release += release_nodes[ii]
+	#
+	#	BB = np.zeros((n_recv - acc_release,num_nodes*2))
+	#	hh = np.zeros((n_recv - acc_release))
+	#	ZZ = np.zeros((n_recv - acc_release,n_recv - acc_release))
+	#	count_tmp = 0
+	#	for ii in range(n_recv):
+	#		point_intli = map_bound_intli[interior_list_j[ii]-1]
+	#		if (release_nodes[point_intli-1] == 0): #apply boundary conditions
+	#			x_pos = (point_intli-1)*2
+	#			y_pos = (point_intli-1)*2+1
+	#			hh[count_tmp] = proje_points_ji[2*ii+1]-nodes[point_intli-1][2]
+	#			BB[count_tmp][x_pos] = -slope_boun_ji[ii]
+	#			BB[count_tmp][y_pos] = 1
+	#			count_tmp += 1
+	#	k_tot_block = np.bmat( [[k_tot, BB.transpose()], [BB, ZZ]] )
+	#	r_tot_block = np.concatenate( [r_tot, hh] )
+	#
+	#if app_name == 'BLOCK':
+	#	if(n_recv == 0):
+	#		displ = np.linalg.solve(k_tot,r_tot)
+	#	else:
+	#		displ = np.linalg.solve(k_tot_block,r_tot_block)
+	#if app_name == 'IDENTER':
+	#	displ = np.linalg.solve(k_tot,r_tot)
+	#
+	#external.mod_fortran.dealloca_stress_strain_matrices()
+	#external.mod_fortran.displ = displ
+	#external.mod_fortran.stress_calc_on = True
+	#if geom_treatment == 'NONLINEAR':
+	#	external.mod_fortran.assembly_nonlinear()
+	#elif geom_treatment == 'LINEAR':
+	#	external.mod_fortran.assembly_linear()
+	#strain = external.mod_fortran.strain
+	#stress = external.mod_fortran.stress
+        #############################################################################################################
+
+	external.mod_fortran.dealloca_global_matrices()
+	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
+	external.mod_fortran.dealloca_stress_strain_matrices()
 
 external.mod_fortran.dealloca_init()
