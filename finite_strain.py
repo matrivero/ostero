@@ -288,7 +288,7 @@ for line in boundary_file:
 				name = line
 				boundary_condition_contact[name].append(name)
 				# LINK BETWEEN BOUNDARY ELEMENTS AND VOLUME ELEMENTS FOR 2D MESHES (2D to 1D)
-				for eg in element_groups[physical_names[name][1]]: #forall pressure boundary elements 
+				for eg in element_groups[physical_names[name][1]]: #forall contact boundary elements 
 					for vo in volume_conditions: #forall volume domains
 						for eg2 in element_groups[physical_names[vo][1]]: #forall volume elements
 							if eg2[1] == 2: #TRIANGLE ELEMENT
@@ -540,6 +540,8 @@ for z in range(int(total_steps)):
 
 		k_tot = external.mod_fortran.k_tot
 		r_tot = external.mod_fortran.r_tot
+		k_tot_ORIG = k_tot
+		r_tot_ORIG = r_tot
 
 		#IMPOSE PRESSURE BOUNDARY CONDITIONS
 		for bc in boundary_condition_press:
@@ -840,7 +842,6 @@ for z in range(int(total_steps)):
 	CD.__locator_exchange_double_scalar__(slope_boun_ij,slope_boun_ji,1)
 	CD.__locator_exchange_double_scalar__(normal_ij,normal_ji,2)
 
-	CD.locator_destroy()
 	
 	#===============================================================================#
 
@@ -894,7 +895,9 @@ for z in range(int(total_steps)):
 	strain = external.mod_fortran.strain
 	stress = external.mod_fortran.stress
 
-	if app_name == 'BLOCK': release_nodes = np.zeros((num_nodes),dtype=np.int)
+	if app_name == 'BLOCK': 
+		release_nodes = np.zeros((num_nodes),dtype=np.int)
+		nodes_in_contact = np.ones((n_recv),dtype=np.int)
 
 	acc_release = 0
 	while_counter = 0
@@ -913,6 +916,7 @@ for z in range(int(total_steps)):
 				Rn = reac_x*normal_ji[2*ii] + reac_y*normal_ji[2*ii+1]
 				if (Rn > 0): #Rn > 0 must be released
 					release_nodes[point_intli-1] = 1
+					nodes_in_contact[ii] = 0
 
 			for ii in range(num_nodes):
 				acc_release += release_nodes[ii]
@@ -954,6 +958,51 @@ for z in range(int(total_steps)):
 		strain = external.mod_fortran.strain
 		stress = external.mod_fortran.stress
         #############################################################################################################
+
+	
+	if app_name == 'BLOCK':
+		nsend = 1
+		nrecv = 0
+		send  = Commdomm.iarray(nsend)
+		recv  = Commdomm.iarray(nrecv)
+		send[0] = int(nodes_in_contact.sum(dtype=np.int))
+		CD.__mpi_sendrecv_int__(send, nsend, recv, nrecv, local_comm, commij)
+
+		RESIDUAL = np.dot(k_tot_ORIG,displ[0:num_nodes*2]) - r_tot_ORIG
+		nsend = 4*int(nodes_in_contact.sum(dtype=np.int))
+		nrecv = 1
+		send = Commdomm.darray(nsend)
+		recv = Commdomm.darray(nrecv)
+		count_tmp = 0
+		for ii in range(n_recv):
+			if (nodes_in_contact[ii] == 1):
+				point_intli = map_bound_intli[interior_list_j[ii]-1]
+				send[int(count_tmp*4)] = nodes[point_intli-1][1] + displ[(point_intli-1)*2]
+				send[int(count_tmp*4+1)] = nodes[point_intli-1][2] + displ[(point_intli-1)*2+1]
+				send[int(count_tmp*4+2)] = RESIDUAL[(point_intli-1)*2]
+				send[int(count_tmp*4+3)] = RESIDUAL[(point_intli-1)*2+1]
+				count_tmp += 1
+		CD.__mpi_sendrecv_real__(send, nsend, recv, nrecv, local_comm, commij)
+
+
+	if app_name == 'IDENTER':
+		nsend = 0
+		nrecv = 1
+		send  = Commdomm.iarray(nsend)
+		recv  = Commdomm.iarray(nrecv)
+		CD.__mpi_sendrecv_int__(send, nsend, recv, nrecv, local_comm, commij)
+
+		nsend = 0
+		nrecv = recv[0]*4
+		send  = Commdomm.darray(nsend)
+		recv  = Commdomm.darray(nrecv)
+		CD.__mpi_sendrecv_real__(send, nsend, recv, nrecv, local_comm, commij)
+	
+		#EN ESTE PUNTO EL IDENTER YA TIENE LA INFO DE LAS COORDENADAS DE LOS NODOS DE CONTACTO DEL BLOCK Y SUS RESIDUOS
+		#AHORA HAY QUE PASAR ESOS RESIDUOS A LOS NODOS DEL IDENTER, HACIENDO UNA INTERPOLACION
+		#PRIMERO HAY QUE VER EN QUE ELEMENTO DE BOUNDARY DEL IDENTER CAE CADA NODO DEL BLOCK Y UNA VEZ CONSEGUIDO ESO
+		#HAY QUE OBTENER LA COORDENADA PARAMETRICA PARA HACER LA DISTRIBUCION DEL RESIDUO A LOS NODOS DEL IDENTER
+		#Y POR ULTIMO HAY QUE CALCULAR EL EQUILIBRIO DEL IDENTER
 
 
         #############################################################################################################
@@ -1008,5 +1057,7 @@ for z in range(int(total_steps)):
 	external.mod_fortran.dealloca_global_matrices()
 	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
 	external.mod_fortran.dealloca_stress_strain_matrices()
+	
+	CD.locator_destroy()
 
 external.mod_fortran.dealloca_init()
