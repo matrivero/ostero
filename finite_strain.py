@@ -1004,6 +1004,68 @@ for z in range(int(total_steps)):
 		#HAY QUE OBTENER LA COORDENADA PARAMETRICA PARA HACER LA DISTRIBUCION DEL RESIDUO A LOS NODOS DEL IDENTER
 		#Y POR ULTIMO HAY QUE CALCULAR EL EQUILIBRIO DEL IDENTER
 
+		RESIDUAL = np.zeros((num_nodes*2)) 
+		for ii in range(int(nrecv/4)):
+			dmin1 = 1e10 
+			dmin2 = 1e10
+			for bc in boundary_condition_contact:
+				for eg in element_groups[physical_names[bc][1]]:
+					p1_x = nodes[eg[6]-1][1] + displ[(eg[6]-1)*2]
+					p1_y = nodes[eg[6]-1][2] + displ[(eg[6]-1)*2+1]
+					p2_x = nodes[eg[5]-1][1] + displ[(eg[5]-1)*2]
+					p2_y = nodes[eg[5]-1][2] + displ[(eg[5]-1)*2+1]
+					d1 = np.sqrt(np.power(p1_x-recv[4*ii],2) + np.power(p1_y-recv[4*ii+1],2))
+					d2 = np.sqrt(np.power(p2_x-recv[4*ii],2) + np.power(p2_y-recv[4*ii+1],2))
+					if ((d1 < d2) & (d1 <= dmin1) & (d2 <= dmin2)):
+						dmin1 = d1
+						dmin2 = d2
+						nodemin1 = eg[6]
+						nodemin2 = eg[5]
+						nodemin1x = nodes[eg[6]-1][1] + displ[(eg[6]-1)*2]
+						nodemin1y = nodes[eg[6]-1][2] + displ[(eg[6]-1)*2+1]
+						nodemin2x = nodes[eg[5]-1][1] + displ[(eg[5]-1)*2]
+						nodemin2y = nodes[eg[5]-1][2] + displ[(eg[5]-1)*2+1]
+					elif ((d2 < d1) & (d2 <= dmin1) & (d1 <= dmin2)):
+						dmin1 = d2
+						dmin2 = d1
+						nodemin1 = eg[5]
+						nodemin2 = eg[6]
+						nodemin1x = nodes[eg[5]-1][1] + displ[(eg[5]-1)*2]
+						nodemin1y = nodes[eg[5]-1][2] + displ[(eg[5]-1)*2+1]
+						nodemin2x = nodes[eg[6]-1][1] + displ[(eg[6]-1)*2]
+						nodemin2y = nodes[eg[6]-1][2] + displ[(eg[6]-1)*2+1]
+					else: #d1 = d2
+						if ((d1 <= dmin1) & (d2 <= dmin2)):
+							dmin1 = d1
+							dmin2 = d2
+							nodemin1 = eg[6]
+							nodemin2 = eg[5]
+							nodemin1x = nodes[eg[5]-1][1] + displ[(eg[5]-1)*2]
+							nodemin1y = nodes[eg[5]-1][2] + displ[(eg[5]-1)*2+1]
+							nodemin2x = nodes[eg[6]-1][1] + displ[(eg[6]-1)*2]
+							nodemin2y = nodes[eg[6]-1][2] + displ[(eg[6]-1)*2+1]
+			#
+			slope1 = (nodemin1y - nodemin2y)/(nodemin1x - nodemin2x)
+			oo1 = nodemin1y - slope1*nodemin1x
+			slope2 = -1/slope1
+			oo2 = recv[4*ii+1] - slope2*recv[4*ii]
+			aaa = np.zeros((2,2))
+			bbb = np.zeros((2))
+			aaa[0][0] = -slope1
+			aaa[0][1] = 1 
+			aaa[1][0] = -slope2
+			aaa[1][1] = 1
+			bbb[0] = oo1
+			bbb[1] = oo2
+			intersection = np.linalg.solve(aaa,bbb) 
+			d1 = np.sqrt(np.power(nodemin1x-intersection[0],2) + np.power(nodemin1y-intersection[1],2))
+			d2 = np.sqrt(np.power(nodemin2x-intersection[0],2) + np.power(nodemin2y-intersection[1],2))
+			w1 = d2/(d1+d2)
+			w2 = d1/(d1+d2)
+			RESIDUAL[2*(nodemin1-1)] = RESIDUAL[2*(nodemin1-1)] + w1*recv[4*ii+2]
+			RESIDUAL[2*(nodemin1-1)+1] = RESIDUAL[2*(nodemin1-1)+1] + w1*recv[4*ii+3]
+			RESIDUAL[2*(nodemin2-1)] = RESIDUAL[2*(nodemin2-1)] + w2*recv[4*ii+2]
+			RESIDUAL[2*(nodemin2-1)+1] = RESIDUAL[2*(nodemin2-1)+1] + w2*recv[4*ii+3]
 
         #############################################################################################################
 	#if app_name == 'BLOCK':
