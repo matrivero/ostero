@@ -882,8 +882,8 @@ end subroutine assembly_linear
 
 subroutine dealloca_global_matrices()
 
-deallocate(k_tot)
-deallocate(r_tot)
+if (allocated(k_tot)) deallocate(k_tot)
+if (allocated(r_tot)) deallocate(r_tot)
 
 end subroutine dealloca_global_matrices
 
@@ -891,8 +891,8 @@ end subroutine dealloca_global_matrices
 
 subroutine dealloca_stress_strain_matrices()
 
-deallocate(stress)
-deallocate(strain)
+if (allocated(stress)) deallocate(stress)
+if (allocated(strain)) deallocate(strain)
 
 end subroutine dealloca_stress_strain_matrices
 
