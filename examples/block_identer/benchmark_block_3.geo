@@ -1,5 +1,5 @@
-Point(1) = {0, 3, 0, 1.0};
-Point(2) = {1.6, 3, 0, 1.0};
+Point(1) = {0, 3.5, 0, 1.0};
+Point(2) = {1.6, 3.5, 0, 1.0};
 Point(3) = {1.6, 4, 0, 1.0};
 Point(4) = {0, 4, 0, 1.0};
 Line(1) = {1, 2};
@@ -22,7 +22,7 @@ Field[1].EdgesList = {3};
 //Field[1].hwall_n = 0.3;
 //Field[1].hwall_t = 0.3;
 Field[1].hfar = 0.07;
-Field[1].hwall_n = 0.03;
-Field[1].hwall_t = 0.03;
+Field[1].hwall_n = 0.02;
+Field[1].hwall_t = 0.02;
 Background Field = 1;
 

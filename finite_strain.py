@@ -511,8 +511,8 @@ def contact_cycle(displ):
 	if app_name == 'IDENTER':
 		vertex_coords = []
 		for no in range(num_nodes):
-			vertex_coords.append(nodes[no][1] + displ[2*no])
-			vertex_coords.append(nodes[no][2] + displ[2*no+1]) 
+			vertex_coords.append(nodes[no][1] + (1-relax_dirichlet)*displ_ant_dirichlet[2*no] + relax_dirichlet*displ[2*no])
+			vertex_coords.append(nodes[no][2] + (1-relax_dirichlet)*displ_ant_dirichlet[2*no+1] + relax_dirichlet*displ[2*no+1]) 
 		for i in range( len(vertex_coords) ): vertex_coords_i[i] = vertex_coords[i]
 
 		count_tmp = 0
@@ -524,8 +524,8 @@ def contact_cycle(displ):
 				id_tmp[eg[6]-1] = 1
 		for no in range(num_nodes): 
 			if (id_tmp[no] != 0):
-				vertex_coords_j[2*int(count_tmp)] = nodes[no][1] + displ[2*no]
-				vertex_coords_j[2*int(count_tmp)+1] = nodes[no][2] + displ[2*no+1]
+				vertex_coords_j[2*int(count_tmp)] = nodes[no][1] + (1-relax_dirichlet)*displ_ant_dirichlet[2*no] + relax_dirichlet*displ[2*no]
+				vertex_coords_j[2*int(count_tmp)+1] = nodes[no][2] + (1-relax_dirichlet)*displ_ant_dirichlet[2*no+1] + relax_dirichlet*displ[2*no+1]
 				map_bound_intli[int(count_tmp)] = no+1	
 				count_tmp = count_tmp + id_tmp[no]
 		n_vertices_j = int(count_tmp)
@@ -593,10 +593,10 @@ def contact_cycle(displ):
 				for eg in element_groups[physical_names[bc][1]]:
 					#x_coord: dist_coords_j[2*isend]
 					#y_coord: dist_coords_j[2*isend+1]
-					p1_x = nodes[eg[6]-1][1] + displ[(eg[6]-1)*2]
-					p1_y = nodes[eg[6]-1][2] + displ[(eg[6]-1)*2+1]
-					p2_x = nodes[eg[5]-1][1] + displ[(eg[5]-1)*2]
-					p2_y = nodes[eg[5]-1][2] + displ[(eg[5]-1)*2+1]
+					p1_x = nodes[eg[6]-1][1] + (1-relax_dirichlet)*displ_ant_dirichlet[(eg[6]-1)*2] + relax_dirichlet*displ[(eg[6]-1)*2]
+					p1_y = nodes[eg[6]-1][2] + (1-relax_dirichlet)*displ_ant_dirichlet[(eg[6]-1)*2+1] + relax_dirichlet*displ[(eg[6]-1)*2+1]
+					p2_x = nodes[eg[5]-1][1] + (1-relax_dirichlet)*displ_ant_dirichlet[(eg[5]-1)*2] + relax_dirichlet*displ[(eg[5]-1)*2]
+					p2_y = nodes[eg[5]-1][2] + (1-relax_dirichlet)*displ_ant_dirichlet[(eg[5]-1)*2+1] + relax_dirichlet*displ[(eg[5]-1)*2+1]
 					slope_boun = (p1_y - p2_y)/(p1_x - p2_x)
 					oo_boun = p1_y - slope_boun*p1_x
 					proje_tmp[0] = dist_coords_j[2*isend]
@@ -726,8 +726,8 @@ def contact_cycle(displ):
 				external.mod_fortran.assembly_linear()
 			strain = external.mod_fortran.strain
 			stress = external.mod_fortran.stress
-		if app_name == 'IDENTER':
-			displ = np.linalg.solve(k_tot,r_tot)
+		#if app_name == 'IDENTER':
+		#	displ = np.linalg.solve(k_tot,r_tot)
 	#==============================================================================#
 	#BLOCK APPLYS RESTRICTIONS AND RELEASE ADHESION NODES (WHEN THIS POINT IS REACHED, BLOCK IS IN EQUILIBRIUM)
 	
@@ -830,10 +830,13 @@ def contact_cycle(displ):
 			d2 = np.sqrt(np.power(nodemin2x-intersection[0],2) + np.power(nodemin2y-intersection[1],2))
 			w1 = d2/(d1+d2)
 			w2 = d1/(d1+d2)
-			RESIDUAL[2*(nodemin1-1)] = RESIDUAL[2*(nodemin1-1)] + w1*recv[4*ii+2]
-			RESIDUAL[2*(nodemin1-1)+1] = RESIDUAL[2*(nodemin1-1)+1] + w1*recv[4*ii+3]
-			RESIDUAL[2*(nodemin2-1)] = RESIDUAL[2*(nodemin2-1)] + w2*recv[4*ii+2]
-			RESIDUAL[2*(nodemin2-1)+1] = RESIDUAL[2*(nodemin2-1)+1] + w2*recv[4*ii+3]
+			RESIDUAL[2*(nodemin1-1)] = RESIDUAL[2*(nodemin1-1)] + (1-relax_neumann)*RESIDUAL_ANT_NEUMANN[2*(nodemin1-1)]  +relax_neumann*w1*recv[4*ii+2]
+			RESIDUAL[2*(nodemin1-1)+1] = RESIDUAL[2*(nodemin1-1)+1] + (1-relax_neumann)*RESIDUAL_ANT_NEUMANN[2*(nodemin1-1)+1] + relax_neumann*w1*recv[4*ii+3]
+			RESIDUAL[2*(nodemin2-1)] = RESIDUAL[2*(nodemin2-1)] + (1-relax_neumann)*RESIDUAL_ANT_NEUMANN[2*(nodemin2-1)] + relax_neumann*w2*recv[4*ii+2]
+			RESIDUAL[2*(nodemin2-1)+1] = RESIDUAL[2*(nodemin2-1)+1] + (1-relax_neumann)*RESIDUAL_ANT_NEUMANN[2*(nodemin2-1)+1] + relax_neumann*w2*recv[4*ii+3]
+
+		RESIDUAL_ANT_NEUMANN[:] = RESIDUAL[:]
+		displ_ant_dirichlet[:] = displ[:]
 
 		displ = np.linalg.solve(k_tot,r_tot-RESIDUAL)
 		external.mod_fortran.dealloca_stress_strain_matrices()
@@ -1010,14 +1013,19 @@ for z in range(int(total_steps)):
 			norm_ddispl = eps
 			print "Linear solution ok!"
 	#------> HASTA AQUI, ENSAMBLADAS LAS MATRICES DEL PROBLEMA ESTATICO SIN CONTACTO
+
 	count_tmp = 0
+	RESIDUAL_ANT_NEUMANN = np.zeros((num_nodes*2))
+	displ_ant_dirichlet = np.zeros((num_nodes*2))
 	while True:
 		displ_ant = displ
+		relax_neumann = 1
+		relax_dirichlet = 1
 		[displ,stress,strain] = contact_cycle(displ)
 		norm_displ = np.linalg.norm(displ[0:num_nodes*2]-displ_ant[0:num_nodes*2])/np.linalg.norm(displ[0:num_nodes*2])
 		print app_name,norm_displ
 		count_tmp += 1
-		if (count_tmp > 5): break
+		if (count_tmp > 7): break
 
 	external.mod_fortran.dealloca_global_matrices()
 	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)

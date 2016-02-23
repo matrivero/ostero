@@ -1,5 +1,5 @@
 case_name IDENTER
-mesh_path benchmark_identer_3.msh
+mesh_path cylinder.msh
 geometrical_treatment LINEAR
 sub_model PLANE_STRESS
 time_step_size 0.01
