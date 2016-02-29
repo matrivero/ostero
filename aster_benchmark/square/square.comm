@@ -1,0 +1,85 @@
+DEBUT();
+
+MESH=LIRE_MAILLAGE(FORMAT='MED',UNITE=20,);
+
+MESH=MODI_MAILLAGE(reuse =MESH,
+                 MAILLAGE=MESH,
+                 ORIE_PEAU_2D=(_F(GROUP_MA='SURF1',),
+                               _F(GROUP_MA='SURF2',),),
+                 );
+
+BULK=DEFI_MATERIAU(ELAS=_F(E=6.896E7,
+                            NU=0.32,),);
+## MATERIAU HYPERELASTIQUE: NEO-HOOKEEN
+#E = 6.896E7;
+#C10 = E/6;
+#C01 = 0.0;
+#C20 = 0.0;
+#NU  = 0.32
+#K   = (6*(C10+C01))/(3*(1-2*NU))
+#
+#BULK=DEFI_MATERIAU(ELAS_HYPER=_F(C10=C10,
+#                                   C01=C01,
+#                                   C20=C20,
+#                                   K=K,),);
+
+MATER=AFFE_MATERIAU(MAILLAGE=MESH,
+                  AFFE=_F(TOUT='OUI',
+                          MATER=BULK,),);
+
+MODEL=AFFE_MODELE(MAILLAGE=MESH,
+                   AFFE=_F(TOUT='OUI',
+                           PHENOMENE='MECANIQUE',
+                           MODELISATION='C_PLAN',),);
+
+
+Fy=DEFI_FONCTION(NOM_PARA='X',
+                  VALE=(-5.0,100000.0,
+                         5.0,100000.0,),
+                      PROL_DROITE='CONSTANT',PROL_GAUCHE='CONSTANT',);
+
+FORCE=AFFE_CHAR_MECA_F(MODELE=MODEL,
+                       PRES_REP=_F(GROUP_MA='SURF1',
+                                   PRES=Fy,),);
+
+FORCE2=AFFE_CHAR_MECA(MODELE=MODEL,
+                     PRES_REP=_F(GROUP_MA='SURF1',
+                                 PRES=100000,),);
+
+FIXED=AFFE_CHAR_MECA(MODELE=MODEL,
+                      DDL_IMPO=_F(GROUP_MA='SURF2',
+                                  DX=0.0,
+                                  DY=0.0,),);
+
+LISTE=DEFI_LIST_REEL(DEBUT=0.0,
+                     INTERVALLE=_F(JUSQU_A=0.05,
+                                   NOMBRE=5,),);
+
+RAMPE=DEFI_FONCTION(NOM_PARA='INST',
+                VALE=(0.0,0.0,0.05,1.0,),);
+
+RES1=STAT_NON_LINE(MODELE=MODEL,
+                   CHAM_MATER=MATER,
+                   EXCIT=(_F(CHARGE=FORCE2,FONC_MULT=RAMPE,),
+                          _F(CHARGE=FIXED,),),
+                   NEWTON=(_F(REAC_INCR=1,
+                              MATRICE='TANGENTE',
+                              REAC_ITER=1,)),
+                   COMPORTEMENT=_F(RELATION='ELAS',
+#                   COMPORTEMENT=_F(RELATION='ELAS_HYPER',
+                                   DEFORMATION='GROT_GDEP',
+                                   TOUT='OUI',),
+                   CONVERGENCE=(_F(ARRET='OUI',
+                                   ITER_GLOB_MAXI=20)),
+                   INCREMENT=_F(LIST_INST=LISTE,),);
+
+RES1=CALC_CHAMP(reuse=RES1,RESULTAT=RES1,CONTRAINTE=('SIGM_ELNO'))
+
+RES1=CALC_CHAMP(reuse =RES1,
+               RESULTAT=RES1,
+               CONTRAINTE='SIEF_NOEU',FORCE=('FORC_NODA','REAC_NODA'));
+
+IMPR_RESU(FORMAT='MED',
+          RESU=_F(RESULTAT=RES1,),);
+
+FIN();

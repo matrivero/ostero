@@ -2,5 +2,7 @@ $VolumeDefinition
 IDENTER 68.96E8 0.32
 $BoundaryConditionsDisplacement
 PRESS 1 1 0.0 -0.2 1 5
+PRESS 1 1 0.6 -0.2 6 20
+PRESS 1 1 0.6 0.2 21 25
 $BoundaryConditionsContact
 CONTACT

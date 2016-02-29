@@ -1,0 +1,6 @@
+case_name BLOCK
+mesh_path benchmark_block_3.msh
+geometrical_treatment LINEAR
+sub_model PLANE_STRAIN
+time_step_size 0.01
+total_steps 5

@@ -1,0 +1,63 @@
+DEBUT();
+
+MESH=LIRE_MAILLAGE(FORMAT='MED',UNITE=20,);
+
+MESH=MODI_MAILLAGE(reuse =MESH,
+                 MAILLAGE=MESH,
+                 ORIE_PEAU_2D=(_F(GROUP_MA='CONTACTB',),
+                               _F(GROUP_MA='FIXED',),),
+                 );
+
+BULK=DEFI_MATERIAU(ELAS=_F(E=68.96E7,
+                            NU=0.32,),);
+
+MATER=AFFE_MATERIAU(MAILLAGE=MESH,
+                  AFFE=_F(TOUT='OUI',
+                          MATER=BULK,),);
+
+MODEL=AFFE_MODELE(MAILLAGE=MESH,
+                   AFFE=_F(TOUT='OUI',
+                           PHENOMENE='MECANIQUE',
+                           MODELISATION='D_PLAN',),);
+
+
+FORCE=AFFE_CHAR_MECA(MODELE=MODEL,
+                     PRES_REP=_F(GROUP_MA='CONTACTB',
+                                 PRES=1E8,),);
+
+FIXED=AFFE_CHAR_MECA(MODELE=MODEL,
+                      DDL_IMPO=_F(GROUP_MA='FIXED',
+                                  DX=0.0,
+                                  DY=0.0,),);
+
+LISTE=DEFI_LIST_REEL(DEBUT=0.0,
+                     INTERVALLE=_F(JUSQU_A=0.05,
+                                   NOMBRE=5,),);
+
+RAMPE=DEFI_FONCTION(NOM_PARA='INST',
+                VALE=(0.0,0.0,0.05,1.0,),);
+
+RES1=STAT_NON_LINE(MODELE=MODEL,
+                   CHAM_MATER=MATER,
+                   EXCIT=(_F(CHARGE=FORCE,FONC_MULT=RAMPE,),
+                          _F(CHARGE=FIXED,),),
+                   COMPORTEMENT=_F(RELATION='ELAS',
+                                   DEFORMATION='PETIT',),
+                   NEWTON=_F(PREDICTION='ELASTIQUE',
+                             MATRICE='TANGENTE',
+                             REAC_ITER=1,),
+                   CONVERGENCE=_F(RESI_GLOB_MAXI=1.E1,
+                                  ITER_GLOB_MAXI=20,),
+                   SOLVEUR=_F(METHODE='MUMPS',),
+                   INCREMENT=_F(LIST_INST=LISTE,),);
+
+RES1=CALC_CHAMP(reuse=RES1,RESULTAT=RES1,CONTRAINTE=('SIGM_ELNO'))
+
+RES1=CALC_CHAMP(reuse =RES1,
+               RESULTAT=RES1,
+               CONTRAINTE='SIEF_NOEU',FORCE=('FORC_NODA','REAC_NODA'));
+
+IMPR_RESU(FORMAT='MED',
+          RESU=_F(RESULTAT=RES1,),);
+
+FIN();

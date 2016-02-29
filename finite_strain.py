@@ -672,6 +672,7 @@ def contact_cycle(displ):
 	if app_name == 'BLOCK': 
 		release_nodes = np.zeros((num_nodes),dtype=np.int)
 		nodes_in_contact = np.ones((n_recv),dtype=np.int)
+		RESIDUAL = np.dot(k_tot_ORIG,displ[0:num_nodes*2]) - r_tot_ORIG
 
 	acc_release = 0
 	while_counter = 0
@@ -684,13 +685,15 @@ def contact_cycle(displ):
 			acc_release = 0
 			for ii in range(n_recv):
 				point_intli = map_bound_intli[interior_list_j[ii]-1]
-				reac_x = normal_ji[2*ii]*stress[0][point_intli-1] + normal_ji[2*ii+1]*stress[2][point_intli-1]
-				reac_y = normal_ji[2*ii]*stress[2][point_intli-1] + normal_ji[2*ii+1]*stress[1][point_intli-1]
-				Rn = reac_x*normal_ji[2*ii] + reac_y*normal_ji[2*ii+1]
+				#reac_x = normal_ji[2*ii]*stress[0][point_intli-1] + normal_ji[2*ii+1]*stress[2][point_intli-1]
+				#reac_y = normal_ji[2*ii]*stress[2][point_intli-1] + normal_ji[2*ii+1]*stress[1][point_intli-1]
+				#Rn = reac_x*normal_ji[2*ii] + reac_y*normal_ji[2*ii+1]
+				reac_x = RESIDUAL[2*(point_intli-1)]
+				reac_y = RESIDUAL[2*(point_intli-1)+1]
+				Rn = -(RESIDUAL[2*(point_intli-1)]*normal_ji[2*ii] + RESIDUAL[2*(point_intli-1)+1]*normal_ji[2*ii+1])
 				if (Rn > 0): #Rn > 0 must be released
 					release_nodes[point_intli-1] = 1
 					nodes_in_contact[ii] = 0
-
 			for ii in range(num_nodes):
 				acc_release += release_nodes[ii]
 
@@ -713,11 +716,11 @@ def contact_cycle(displ):
 			k_tot_block = np.bmat( [[k_tot, BB.transpose()], [BB, ZZ]] )
 			r_tot_block = np.concatenate( [r_tot, hh] )
 
-		if app_name == 'BLOCK':
 			if(n_recv == 0):
 				displ = np.linalg.solve(k_tot,r_tot)
 			else:
 				displ = np.linalg.solve(k_tot_block,r_tot_block)
+			RESIDUAL = np.dot(k_tot_ORIG,displ[0:num_nodes*2]) - r_tot_ORIG
 
 			external.mod_fortran.dealloca_stress_strain_matrices()
 			external.mod_fortran.displ = displ
@@ -728,8 +731,6 @@ def contact_cycle(displ):
 				external.mod_fortran.assembly_linear()
 			strain = external.mod_fortran.strain
 			stress = external.mod_fortran.stress
-		#if app_name == 'IDENTER':
-		#	displ = np.linalg.solve(k_tot,r_tot)
 	#==============================================================================#
 	#BLOCK APPLYS RESTRICTIONS AND RELEASE ADHESION NODES (WHEN THIS POINT IS REACHED, BLOCK IS IN EQUILIBRIUM)
 	

@@ -1,0 +1,6 @@
+$VolumeDefinition
+BLOCK 6.896E8 0.32
+$BoundaryConditionsDisplacement
+FIXED 1 1 0.0 0.0 1 10
+$BoundaryConditionsContact
+CONTACT

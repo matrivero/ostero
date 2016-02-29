@@ -1,0 +1,6 @@
+case_name IDENTER
+mesh_path benchmark_identer.msh
+geometrical_treatment LINEAR
+sub_model PLANE_STRAIN
+time_step_size 0.1
+total_steps 10
