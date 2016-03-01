@@ -163,7 +163,7 @@ if geom_treatment == 'NONLINEAR':
 	try:
 		model
 	except NameError:
-		print "Select a valid model for NONLINEAR geometrical treatment: ISOL, BELY, ZIEN or LAUR... bye!"
+		print "Select a valid constitutive model for NONLINEAR geometrical treatment: ISOL, BELY, ZIEN or LAUR... bye!"
 		sys.exit()
 	if model == 'ISOL':
 		try:
@@ -659,16 +659,6 @@ def contact_cycle(displ):
 	#IDENTER CALCULATES THE PROJECTIONS, SLOPE AND NORMAL AND SENDS THAT INFO TO THE BLOCK
         
 	#==============================================================================#
-	external.mod_fortran.dealloca_stress_strain_matrices()
-	external.mod_fortran.displ = displ
-	external.mod_fortran.stress_calc_on = True
-	if geom_treatment == 'NONLINEAR':
-		external.mod_fortran.assembly_nonlinear()
-	elif geom_treatment == 'LINEAR':
-		external.mod_fortran.assembly_linear()
-	strain = external.mod_fortran.strain
-	stress = external.mod_fortran.stress
-	
 	if app_name == 'BLOCK': 
 		release_nodes = np.zeros((num_nodes),dtype=np.int)
 		nodes_in_contact = np.ones((n_recv),dtype=np.int)
@@ -685,9 +675,6 @@ def contact_cycle(displ):
 			acc_release = 0
 			for ii in range(n_recv):
 				point_intli = map_bound_intli[interior_list_j[ii]-1]
-				#reac_x = normal_ji[2*ii]*stress[0][point_intli-1] + normal_ji[2*ii+1]*stress[2][point_intli-1]
-				#reac_y = normal_ji[2*ii]*stress[2][point_intli-1] + normal_ji[2*ii+1]*stress[1][point_intli-1]
-				#Rn = reac_x*normal_ji[2*ii] + reac_y*normal_ji[2*ii+1]
 				reac_x = RESIDUAL[2*(point_intli-1)]
 				reac_y = RESIDUAL[2*(point_intli-1)+1]
 				Rn = -(RESIDUAL[2*(point_intli-1)]*normal_ji[2*ii] + RESIDUAL[2*(point_intli-1)+1]*normal_ji[2*ii+1])
@@ -721,16 +708,6 @@ def contact_cycle(displ):
 			else:
 				displ = np.linalg.solve(k_tot_block,r_tot_block)
 			RESIDUAL = np.dot(k_tot_ORIG,displ[0:num_nodes*2]) - r_tot_ORIG
-
-			external.mod_fortran.dealloca_stress_strain_matrices()
-			external.mod_fortran.displ = displ
-			external.mod_fortran.stress_calc_on = True
-			if geom_treatment == 'NONLINEAR':
-				external.mod_fortran.assembly_nonlinear()
-			elif geom_treatment == 'LINEAR':
-				external.mod_fortran.assembly_linear()
-			strain = external.mod_fortran.strain
-			stress = external.mod_fortran.stress
 	#==============================================================================#
 	#BLOCK APPLYS RESTRICTIONS AND RELEASE ADHESION NODES (WHEN THIS POINT IS REACHED, BLOCK IS IN EQUILIBRIUM)
 	
@@ -842,19 +819,10 @@ def contact_cycle(displ):
 		displ_ant_dirichlet[:] = displ[:]
 
 		displ = np.linalg.solve(k_tot,r_tot-RESIDUAL)
-		external.mod_fortran.dealloca_stress_strain_matrices()
-		external.mod_fortran.displ = displ
-		external.mod_fortran.stress_calc_on = True
-		if geom_treatment == 'NONLINEAR':
-			external.mod_fortran.assembly_nonlinear()
-		elif geom_treatment == 'LINEAR':
-			external.mod_fortran.assembly_linear()
-		strain = external.mod_fortran.strain
-		stress = external.mod_fortran.stress
 	#==============================================================================#
 	#IDENTER RECIEVES THE RESIDUAL AND CALCULATES ITS EQUILIBRIUM
 	CD.locator_destroy()
-	return displ,stress,strain
+	return displ
 	
 #==============================================================================#
 
@@ -992,9 +960,6 @@ for z in range(int(total_steps)):
 								bcx_ant = boundary_condition_disp[bc][6*(ii-1)+2]
 								bcy_ant = boundary_condition_disp[bc][6*(ii-1)+3]
 								step_ant = boundary_condition_disp[bc][6*(ii-1)+5]
-							#if app_name == 'IDENTER':
-							#	print "x", (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-							#	print "y", (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
 							for no in range(5,7):
 								if(boundary_condition_disp[bc][6*ii]): #ASK FOR FIX_X
 									k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
@@ -1028,30 +993,42 @@ for z in range(int(total_steps)):
 			it_counter_global = it_counter_global + 1
 			print "Newton-Raphson iteration:",it_counter
 			print "Displacement increment error:",norm_ddispl
+			external.mod_fortran.dealloca_global_matrices()
 		elif geom_treatment == 'LINEAR':
 			displ = ddispl
 			norm_ddispl = eps
 			print "Linear solution ok!"
 	#------> HASTA AQUI, ENSAMBLADAS LAS MATRICES DEL PROBLEMA ESTATICO SIN CONTACTO
 
-	count_tmp = 0
-	RESIDUAL_ANT_NEUMANN = np.zeros((num_nodes*2))
-	displ_ant_dirichlet = np.zeros((num_nodes*2))
-	norm_displ_max = 1E10
-	while (norm_displ_max > 1E-6):
-		displ_ant = displ
-		relax_neumann = 1
-		relax_dirichlet = 1
-		[displ,stress,strain] = contact_cycle(displ)
-		norm_displ_other = Commdomm.darray(1)
-		norm_displ = Commdomm.darray(1)
-		norm_displ[0] = np.linalg.norm(displ[0:num_nodes*2]-displ_ant[0:num_nodes*2])/np.linalg.norm(displ[0:num_nodes*2])
-		CD.__mpi_sendrecv_real__(norm_displ,1,norm_displ_other,1,local_comm,commij)
-		norm_displ_max = np.maximum(norm_displ[0],norm_displ_other[0])
-		print app_name, "NORM DISPL MAX:", norm_displ_max
+	if geom_treatment == 'LINEAR':
+		count_tmp = 0
+		RESIDUAL_ANT_NEUMANN = np.zeros((num_nodes*2))
+		displ_ant_dirichlet = np.zeros((num_nodes*2))
+		norm_displ_max = 1E10
+		while (norm_displ_max > 1E-6):
+			displ_ant = displ
+			relax_neumann = 1
+			relax_dirichlet = 1
+			displ = contact_cycle(displ)
+			norm_displ_other = Commdomm.darray(1)
+			norm_displ = Commdomm.darray(1)
+			norm_displ[0] = np.linalg.norm(displ[0:num_nodes*2]-displ_ant[0:num_nodes*2])/np.linalg.norm(displ[0:num_nodes*2])
+			CD.__mpi_sendrecv_real__(norm_displ,1,norm_displ_other,1,local_comm,commij)
+			norm_displ_max = np.maximum(norm_displ[0],norm_displ_other[0])
+			print app_name, "NORM DISPL MAX:", norm_displ_max
+
+	external.mod_fortran.displ = displ
+	external.mod_fortran.stress_calc_on = True
+	if geom_treatment == 'NONLINEAR':
+		external.mod_fortran.assembly_nonlinear()
+	elif geom_treatment == 'LINEAR':
+		external.mod_fortran.assembly_linear()
+	strain = external.mod_fortran.strain
+	stress = external.mod_fortran.stress
 
 	external.mod_fortran.dealloca_global_matrices()
 	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
 	external.mod_fortran.dealloca_stress_strain_matrices()
+
 external.mod_fortran.dealloca_init()
 
