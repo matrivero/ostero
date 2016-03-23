@@ -1207,6 +1207,7 @@ for z in range(int(total_steps)):
 	while_counter = 0
 	while True:
 		if app_name == 'IDENTER':
+			writeout.writeoutput(app_name+"TMP"+str(z+1),0,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
 			break
 
 		if app_name == 'BLOCK':
@@ -1252,6 +1253,8 @@ for z in range(int(total_steps)):
 			point_intli_vector = np.zeros((n_recv - acc_release))
 			count_tmp = 0
 			displ = np.copy(displ_ant_release)
+			filefile = open("BLOCK"+str(z+1)+"CARAMBOLA"+str(while_counter),'w')
+			writeout.writeoutput("BLOCK"+str(z+1)+"CARAMBOLA",while_counter-1,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
 			for ii in range(n_recv):
 				point_intli = map_bound_intli[interior_list_j[ii]-1]
 				if (release_nodes[point_intli-1] == 0): #apply boundary conditions
@@ -1260,6 +1263,11 @@ for z in range(int(total_steps)):
 					#displ[2*(point_intli-1)] = 0
 					displ[2*(point_intli-1)+1] = proje_points_ji[2*ii+1]-nodes[point_intli-1][2]
 					count_tmp += 1
+					filefile.write(str(displ[2*(point_intli-1)] ))
+					filefile.write(" ")
+					filefile.write(str(displ[2*(point_intli-1)+1] ))
+					filefile.write("\n")
+			filefile.close()
 
 			"""
 			for bc in boundary_condition_contact:
@@ -1288,9 +1296,9 @@ for z in range(int(total_steps)):
 				external.mod_fortran.dealloca_global_matrices() 
 				external.mod_fortran.displ = displ[0:num_nodes*2]
 				external.mod_fortran.stress_calc_on = False
-				#print "SOY BLOCK, ESTOY EN", z+1, "Y EN LA ITERACION", it_counter+1, "Y VOY A ENSAMBLAR KTOT Y RTOT"
+				print "SOY BLOCK, ESTOY EN", z+1, "Y EN LA ITERACION", it_counter+1, "Y VOY A ENSAMBLAR KTOT Y RTOT",n_recv
 				external.mod_fortran.assembly_nonlinear()
-				#print "SOY BLOCK, ESTOY EN", z+1, "Y EN LA ITERACION", it_counter+1, "Y TERMINE DE ENSAMBLAR KTOT Y RTOT"
+				print "SOY BLOCK, ESTOY EN", z+1, "Y EN LA ITERACION", it_counter+1, "Y TERMINE DE ENSAMBLAR KTOT Y RTOT",n_recv
 				k_tot = external.mod_fortran.k_tot
 				r_tot = external.mod_fortran.r_tot
 				k_tot_ORIG = np.copy(k_tot)
@@ -1355,23 +1363,40 @@ for z in range(int(total_steps)):
 					BB[ii][y_pos] = 1
 				"""
 
-				
-				BB = np.zeros((n_recv - acc_release,num_nodes*2))
-				hh = np.zeros((n_recv - acc_release))
-				ZZ = np.zeros((n_recv - acc_release,n_recv - acc_release))
-				count_tmp = 0
-				for ii in range(n_recv):
-					point_intli = map_bound_intli[interior_list_j[ii]-1]
-					if (release_nodes[point_intli-1] == 0): #apply boundary conditions
+				if (z+1 != 4):	
+					BB = np.zeros((n_recv - acc_release,num_nodes*2))
+					hh = np.zeros((n_recv - acc_release))
+					ZZ = np.zeros((n_recv - acc_release,n_recv - acc_release))
+					count_tmp = 0
+					print "CACATUA",z+1,it_counter,"--->",acc_release
+					for ii in range(n_recv):
+						point_intli = map_bound_intli[interior_list_j[ii]-1]
+						if (release_nodes[point_intli-1] == 0): #apply boundary conditions
+							x_pos = (point_intli-1)*2
+							y_pos = (point_intli-1)*2+1
+							hh[count_tmp] = 0
+							BB[count_tmp][x_pos] = -slope_boun_ji[ii]
+							BB[count_tmp][y_pos] = 1
+							count_tmp += 1
+							print "CACATUA_RELEASE", point_intli,-slope_boun_ji[ii]
+				else:
+					print "CACASAPO!!!!"
+					BB = np.zeros((n_recv*2,num_nodes*2))
+					hh = np.zeros((n_recv*2))
+					ZZ = np.zeros((n_recv*2,n_recv*2))
+					for ii in range(n_recv):
+						point_intli = map_bound_intli[interior_list_j[ii]-1]
 						x_pos = (point_intli-1)*2
 						y_pos = (point_intli-1)*2+1
-						hh[count_tmp] = 0
-						BB[count_tmp][x_pos] = -slope_boun_ji[ii]
-						BB[count_tmp][y_pos] = 1
-						count_tmp += 1
+						hh[2*ii] = 0
+						hh[2*ii+1] = 0
+						BB[2*ii][x_pos] = 1
+						BB[2*ii+1][y_pos] = 1
+					
 
 				k_tot_block = np.bmat( [[k_tot, BB.transpose()], [BB, ZZ]] )
 				r_tot_block = np.concatenate( [r_tot, hh] )
+				writeout.writeoutput(app_name+"TMP"+str(z+1),it_counter-1,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
 
 				if(n_recv == 0):
 					ddispl = np.linalg.solve(k_tot,r_tot)
@@ -1386,6 +1411,7 @@ for z in range(int(total_steps)):
 				print "Newton-Raphson CONTACT iteration:", app_name, it_counter
 				print "Displacement CONTACT increment error:", app_name, norm_ddispl
 				RESIDUAL = r_tot_ORIG
+				writeout.writeoutput(app_name+"TMP"+str(z+1),it_counter-1,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
 
 	if app_name == 'BLOCK':		
 		for ii in range(len(point_intli_vector)):
@@ -1600,6 +1626,571 @@ for z in range(int(total_steps)):
 	"""
 	#==============================================================================#
 	#BLOCK APPLYS RESTRICTIONS AND RELEASE ADHESION NODES (WHEN THIS POINT IS REACHED, BLOCK IS IN EQUILIBRIUM)
+
+	CD.locator_destroy()
+
+	print app_name,"STARTS AGAIN"
+	#===============STARTS AGAIN=====================
+	if app_name == 'IDENTER':
+		vertex_coords = []
+		for no in range(num_nodes):
+			vertex_coords.append(nodes[no][1] + displ[2*no])
+			vertex_coords.append(nodes[no][2] + displ[2*no+1]) 
+		for i in range( len(vertex_coords) ): vertex_coords_i[i] = vertex_coords[i]
+
+		count_tmp = 0
+		id_tmp = np.zeros((num_nodes),dtype=np.int)
+		map_bound_intli = np.zeros((num_nodes),dtype=np.int)
+		for bc in boundary_condition_contact:
+			for eg in element_groups[physical_names[bc][1]]:
+				id_tmp[eg[5]-1] = 1
+				id_tmp[eg[6]-1] = 1
+		for no in range(num_nodes): 
+			if (id_tmp[no] != 0):
+				vertex_coords_j[2*int(count_tmp)] = nodes[no][1] + displ[2*no]
+				vertex_coords_j[2*int(count_tmp)+1] = nodes[no][2] + displ[2*no+1]
+				map_bound_intli[int(count_tmp)] = no+1	
+				count_tmp = count_tmp + id_tmp[no]
+		n_vertices_j = int(count_tmp)
+
+	if app_name == 'BLOCK':
+		vertex_coords = []
+		for no in range(num_nodes):
+			vertex_coords.append(nodes[no][1]) #+ displ[2*no])
+			vertex_coords.append(nodes[no][2]) #+ displ[2*no+1]) 
+		for i in range( len(vertex_coords) ): vertex_coords_i[i] = vertex_coords[i]
+
+		count_tmp = 0
+		id_tmp = np.zeros((num_nodes),dtype=np.int)
+		map_bound_intli = np.zeros((num_nodes),dtype=np.int)
+		for bc in boundary_condition_contact:
+			for eg in element_groups[physical_names[bc][1]]:
+				id_tmp[eg[5]-1] = 1
+				id_tmp[eg[6]-1] = 1
+		for no in range(num_nodes): 
+			if (id_tmp[no] != 0):
+				vertex_coords_j[2*int(count_tmp)] = nodes[no][1] #+ displ[2*no]
+				vertex_coords_j[2*int(count_tmp)+1] = nodes[no][2] #+ displ[2*no+1]
+				map_bound_intli[int(count_tmp)] = no+1	
+				count_tmp = count_tmp + id_tmp[no]
+		n_vertices_j = int(count_tmp)
+
+	CD.locator_create2(local_comm, commij, 0.001)
+	CD.locator_set_cs_mesh(n_vertices_i,n_elements_i,vertex_coords_i,vertex_num_i,vertex_type_i,n_vertices_j,vertex_coords_j,ndime) 
+	#CD.save_dist_coords(z+1, local_comm)
+	n_recv = CD.get_n_interior()
+	n_send = CD.get_n_dist_points() # NSEND ARE THE NUMBER OF MY ELEMENTS THAT I WILL SEND TO THE OTHER CODE
+					# MY ELEMENTS WHICH HAVE AT LEAST ONE NODE OF THE OTHER CODE
+	dist_locations_i = Commdomm.iarray(n_send)
+	dist_coords_j = Commdomm.darray(n_send*ndime)
+	interior_list_j = Commdomm.iarray(n_recv)
+	CD.__locator_get_dist_locations__( dist_locations_i )  
+	CD.__locator_get_dist_coords__(    dist_coords_j    )
+	CD.__locator_get_interior_list__(interior_list_j)
+	#==============================================================================#
+	#END OF LOCALIZATION BASED ON CURRENT CONFIGURATION
+	print "P2-ESTOY EN TIME STEP", z+1, "SOY", app_name, "Y YA TERMINE DE HACER LA LOCALIZACION"
+	#==============================================================================#
+	proje_points_ij = Commdomm.darray(n_send*ndime)
+	for ii in range(n_send*ndime): proje_points_ij[ii] = 0.0
+	proje_points_ji = Commdomm.darray(n_recv*ndime)
+	for ii in range(n_recv*ndime): proje_points_ji[ii] = 0.0
+
+	slope_boun_ij = Commdomm.darray(n_send)
+	for ii in range(n_send): slope_boun_ij[ii] = 0.0
+	slope_boun_ji = Commdomm.darray(n_recv)
+	for ii in range(n_recv): slope_boun_ji[ii] = 0.0
+
+	normal_ij = Commdomm.darray(n_send*ndime)
+	for ii in range(n_send*ndime): normal_ij[ii] = 0.0
+	normal_ji = Commdomm.darray(n_recv*ndime)
+	for ii in range(n_recv*ndime): normal_ji[ii] = 0.0
+
+	if app_name == 'IDENTER': #---> IMPOSE BOUNDARY CONDITIONS ON NODES, ONLY Y DISPLACEMENT
+		#dist_coords_j ---> coords of the other code that are inside of my geometry. need to check if are boundary nodes
+		proje_tmp = np.zeros((2))
+		acc_proje_ponts = 0
+		for isend in range(n_send):
+			for bc in boundary_condition_contact:
+				cont = 0
+				for eg in element_groups[physical_names[bc][1]]:
+					#x_coord: dist_coords_j[2*isend]
+					#y_coord: dist_coords_j[2*isend+1]
+					p1_x = nodes[eg[6]-1][1] + displ[(eg[6]-1)*2]
+					p1_y = nodes[eg[6]-1][2] + displ[(eg[6]-1)*2+1]
+					p2_x = nodes[eg[5]-1][1] + displ[(eg[5]-1)*2]
+					p2_y = nodes[eg[5]-1][2] + displ[(eg[5]-1)*2+1]
+					slope_boun = (p1_y - p2_y)/(p1_x - p2_x)
+					oo_boun = p1_y - slope_boun*p1_x
+					proje_tmp[0] = dist_coords_j[2*isend]
+					proje_tmp[1] = slope_boun*dist_coords_j[2*isend] + oo_boun
+					tangent_x = p1_x - p2_x
+					tangent_y = p1_y - p2_y
+					normal_x = tangent_y 
+					normal_y = -tangent_x
+					# CHECK NORMAL DIRECTION IF IT IS INWARDS (NOT OK) OR OUTWARDS (OK)
+					offset_elem_bulk = elements_bulk[0][0]
+					center_of_mass_x = 0
+					center_of_mass_y = 0
+					if elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][1] == 2: #TRIANGLE ELEMENT
+						pnode = 3
+					elif elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][1] == 3: #QUAD ELEMENT
+						pnode = 4
+					for node in range(pnode):
+						center_of_mass_x += nodes[elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][5+node] - 1][1]
+						center_of_mass_y += nodes[elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][5+node] - 1][2]
+					center_of_mass_x = center_of_mass_x/pnode
+					center_of_mass_y = center_of_mass_y/pnode
+					dot_prod = (center_of_mass_x - nodes[eg[5]-1][1])*normal_x + (center_of_mass_y - nodes[eg[5]-1][2])*normal_y 
+					if dot_prod > 0:
+						normal_x = -normal_x
+						normal_y = -normal_y
+						tangent_x = -tangent_x
+						tangent_y = -tangent_y
+					cont += 1
+					##########################################################
+					dxc = proje_tmp[0] - p2_x
+					dyc = proje_tmp[1] - p2_y
+					dxl = p1_x - p2_x
+					dyl = p1_y - p2_y
+					cross = dxc*dyl - dyc*dxl
+					if (cross < 1e-6): #check if the projected point is inside the boundary	
+						d1x = proje_tmp[0] - p2_x
+						d1y = proje_tmp[1] - p2_y
+						d1 = np.sqrt(d1x*d1x + d1y*d1y)
+						d2x = proje_tmp[0] - p1_x
+						d2y = proje_tmp[1] - p1_y
+						d2 = np.sqrt(d2x*d2x + d2y*d2y)
+						d3x = p1_x - p2_x
+						d3y = p1_y - p2_y
+						d3 = np.sqrt(d3x*d3x + d3y*d3y)
+						if ((d1 <= d3) & (d2 <= d3)):
+							proje_points_ij[2*acc_proje_ponts] = proje_tmp[0]
+							proje_points_ij[2*acc_proje_ponts+1] = proje_tmp[1]
+							slope_boun_ij[acc_proje_ponts] = slope_boun
+							normal_ij[2*acc_proje_ponts] = normal_x
+							normal_ij[2*acc_proje_ponts+1] = normal_y
+							acc_proje_ponts = acc_proje_ponts + 1
+					##########################################################
+	
+	CD.__locator_exchange_double_scalar__(proje_points_ij,proje_points_ji,2)
+	CD.__locator_exchange_double_scalar__(slope_boun_ij,slope_boun_ji,1)
+	CD.__locator_exchange_double_scalar__(normal_ij,normal_ji,2)
+	#==============================================================================#
+	#IDENTER CALCULATES THE PROJECTIONS, SLOPE AND NORMAL AND SENDS THAT INFO TO THE BLOCK
+	print "P2-ESTOY EN TIME STEP", z+1, "SOY", app_name, "Y YA PASE POR LA ZONA DE PROYECCIONES"
+
+
+
+	if app_name == 'BLOCK': 
+		release_nodes = np.zeros((num_nodes),dtype=np.int)
+		nodes_in_contact = np.ones((n_recv),dtype=np.int)
+		#RESIDUAL = np.dot(k_tot_ORIG,ddispl[0:num_nodes*2]) - r_tot_ORIG
+		RESIDUAL = r_tot_ORIG
+		displ_ant_release = np.copy(displ)
+
+	acc_release = 0
+	while_counter = 0
+	while True:
+		if app_name == 'IDENTER':
+			break
+
+		if app_name == 'BLOCK':
+			while_counter += 1
+			acc_release_old = acc_release
+			acc_release = 0
+			for ii in range(n_recv):
+				point_intli = map_bound_intli[interior_list_j[ii]-1]
+				reac_x = RESIDUAL[2*(point_intli-1)]
+				reac_y = RESIDUAL[2*(point_intli-1)+1]
+				Rn = -(RESIDUAL[2*(point_intli-1)]*normal_ji[2*ii] + RESIDUAL[2*(point_intli-1)+1]*normal_ji[2*ii+1])
+				#print point_intli,Rn,while_counter,z+1
+				if ((Rn < 0) & (while_counter >= 2)): #Rn > 0 must be released
+					print "AHORA SI ESTOY MARCANDO NODOS"
+					release_nodes[point_intli-1] = 1
+					nodes_in_contact[ii] = 0
+			for ii in range(num_nodes):
+				acc_release += release_nodes[ii]
+
+			if ((acc_release_old >= acc_release) & (while_counter >= 2)):
+				break
+
+			"""
+			for bc in boundary_condition_contact:
+				for eg in element_groups[physical_names[bc][1]]:
+					#x_coord: dist_coords_j[2*isend]
+					#y_coord: dist_coords_j[2*isend+1]
+					p1_x = nodes[eg[6]-1][1] + displ[(eg[6]-1)*2]
+					p1_y = nodes[eg[6]-1][2] + displ[(eg[6]-1)*2+1]
+					p2_x = nodes[eg[5]-1][1] + displ[(eg[5]-1)*2]
+					p2_y = nodes[eg[5]-1][2] + displ[(eg[5]-1)*2+1]
+					#print p1_x,p1_y
+					#print p2_x,p2_y
+
+			filefile = open("BLOCK"+str(z+1)+"ANTES",'w')
+			for ii in range(num_nodes):
+				filefile.write(str(nodes[ii][1] + displ[2*ii]))
+				filefile.write(" ")
+				filefile.write(str(nodes[ii][2] + displ[2*ii+1]))
+				filefile.write("\n")
+			filefile.close()
+			"""
+			point_intli_vector = np.zeros((n_recv - acc_release))
+			count_tmp = 0
+			displ = np.copy(displ_ant_release)
+			for ii in range(n_recv):
+				point_intli = map_bound_intli[interior_list_j[ii]-1]
+				if (release_nodes[point_intli-1] == 0): #apply boundary conditions
+					point_intli_vector[count_tmp] = point_intli
+					displ[2*(point_intli-1)] = proje_points_ji[2*ii]-nodes[point_intli-1][1]
+					#displ[2*(point_intli-1)] = 0
+					displ[2*(point_intli-1)+1] = proje_points_ji[2*ii+1]-nodes[point_intli-1][2]
+					count_tmp += 1
+
+			"""
+			for bc in boundary_condition_contact:
+				for eg in element_groups[physical_names[bc][1]]:
+					#x_coord: dist_coords_j[2*isend]
+					#y_coord: dist_coords_j[2*isend+1]
+					p1_x = nodes[eg[6]-1][1] + displ[(eg[6]-1)*2]
+					p1_y = nodes[eg[6]-1][2] + displ[(eg[6]-1)*2+1]
+					p2_x = nodes[eg[5]-1][1] + displ[(eg[5]-1)*2]
+					p2_y = nodes[eg[5]-1][2] + displ[(eg[5]-1)*2+1]
+					#print p1_x,p1_y
+					#print p2_x,p2_y
+
+			filefile = open("BLOCK"+str(z+1)+"DESPUES",'w')
+			for ii in range(num_nodes):
+				filefile.write(str(nodes[ii][1] + displ[2*ii]))
+				filefile.write(" ")
+				filefile.write(str(nodes[ii][2] + displ[2*ii+1]))
+				filefile.write("\n")
+			filefile.close()
+			"""
+
+			norm_ddispl = 1E10	
+			it_counter = 0
+			while (norm_ddispl > eps):
+				external.mod_fortran.dealloca_global_matrices() 
+				external.mod_fortran.displ = displ[0:num_nodes*2]
+				external.mod_fortran.stress_calc_on = False
+				#print "SOY BLOCK, ESTOY EN", z+1, "Y EN LA ITERACION", it_counter+1, "Y VOY A ENSAMBLAR KTOT Y RTOT"
+				external.mod_fortran.assembly_nonlinear()
+				#print "SOY BLOCK, ESTOY EN", z+1, "Y EN LA ITERACION", it_counter+1, "Y TERMINE DE ENSAMBLAR KTOT Y RTOT"
+				k_tot = external.mod_fortran.k_tot
+				r_tot = external.mod_fortran.r_tot
+				k_tot_ORIG = np.copy(k_tot)
+				r_tot_ORIG = np.copy(r_tot)
+
+				#IMPOSE DISPLACEMENT BOUNDARY CONDITIONS
+				for bc in boundary_condition_disp:
+					for eg in element_groups[physical_names[bc][1]]:
+						#(eg[5]-1)*2 component X of the first node
+						#(eg[5]-1)*2+1 component Y of the first node
+						#(eg[6]-1)*2 component X of the second node
+						#(eg[6]-1)*2+1 component Y of the second node
+						for no in range(5,7):
+							if(boundary_condition_disp[bc][0]): #ASK FOR FIX_X
+								for nn in range(num_nodes*2):
+									k_tot[(eg[no]-1)*2][nn] = 0.0 #put zero on the row 	
+									k_tot[nn][(eg[no]-1)*2] = 0.0 	
+								k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
+								r_tot[(eg[no]-1)*2] = 0.0	
+							
+							if(boundary_condition_disp[bc][1]): #ASK FOR FIX_Y
+								for nn in range(num_nodes*2):
+									k_tot[(eg[no]-1)*2+1][nn] = 0.0	
+									k_tot[nn][(eg[no]-1)*2+1] = 0.0
+								k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0	
+								r_tot[(eg[no]-1)*2+1] = 0.0
+				"""	
+				for ii in range(len(point_intli_vector)):
+					for nn in range(num_nodes*2):
+				#		k_tot[2*(point_intli_vector[ii]-1)][nn] = 0.0 #put zero on the row 	
+				#		k_tot[nn][2*(point_intli_vector[ii]-1)] = 0.0 	
+						k_tot[2*(point_intli_vector[ii]-1)+1][nn] = 0.0	
+						k_tot[nn][2*(point_intli_vector[ii]-1)+1] = 0.0
+				#	k_tot[2*(point_intli_vector[ii]-1)][2*(point_intli_vector[ii]-1)] = 1.0
+				#	r_tot[2*(point_intli_vector[ii]-1)] = 0.0	
+					k_tot[2*(point_intli_vector[ii]-1)+1][2*(point_intli_vector[ii]-1)+1] = 1.0	
+					r_tot[2*(point_intli_vector[ii]-1)+1] = 0.0
+				"""
+
+				"""
+				BB = np.zeros((n_recv*2,num_nodes*2))
+				hh = np.zeros((n_recv*2))
+				ZZ = np.zeros((n_recv*2,n_recv*2))
+				for ii in range(n_recv):
+					point_intli = map_bound_intli[interior_list_j[ii]-1]
+					x_pos = (point_intli-1)*2
+					y_pos = (point_intli-1)*2+1
+					hh[2*ii] = 0
+					hh[2*ii+1] = 0
+					BB[2*ii][x_pos] = 1
+					BB[2*ii+1][y_pos] = 1
+				"""
+				
+				"""	
+				BB = np.zeros((n_recv,num_nodes*2))
+				hh = np.zeros((n_recv))
+				ZZ = np.zeros((n_recv,n_recv))
+				for ii in range(n_recv):
+					point_intli = map_bound_intli[interior_list_j[ii]-1]
+					y_pos = (point_intli-1)*2+1
+					hh[ii] = 0
+					BB[ii][y_pos] = 1
+				"""
+
+				
+				BB = np.zeros((n_recv - acc_release,num_nodes*2))
+				hh = np.zeros((n_recv - acc_release))
+				ZZ = np.zeros((n_recv - acc_release,n_recv - acc_release))
+				count_tmp = 0
+				for ii in range(n_recv):
+					point_intli = map_bound_intli[interior_list_j[ii]-1]
+					if (release_nodes[point_intli-1] == 0): #apply boundary conditions
+						x_pos = (point_intli-1)*2
+						y_pos = (point_intli-1)*2+1
+						hh[count_tmp] = 0
+						BB[count_tmp][x_pos] = -slope_boun_ji[ii]
+						BB[count_tmp][y_pos] = 1
+						count_tmp += 1
+
+				k_tot_block = np.bmat( [[k_tot, BB.transpose()], [BB, ZZ]] )
+				r_tot_block = np.concatenate( [r_tot, hh] )
+
+				if(n_recv == 0):
+					ddispl = np.linalg.solve(k_tot,r_tot)
+				else:
+					ddispl = np.linalg.solve(k_tot_block,r_tot_block)
+
+				#ddispl = np.linalg.solve(k_tot,r_tot)
+				displ = displ + ddispl[0:num_nodes*2]
+				norm_ddispl = np.linalg.norm(ddispl[0:num_nodes*2])/np.linalg.norm(displ)
+				it_counter = it_counter + 1
+				it_counter_global = it_counter_global + 1
+				print "Newton-Raphson CONTACT iteration:", app_name, it_counter
+				print "Displacement CONTACT increment error:", app_name, norm_ddispl
+				RESIDUAL = r_tot_ORIG
+
+	
+	if app_name == 'BLOCK':		
+		for ii in range(len(point_intli_vector)):
+			#print point_intli_vector[ii]
+			#print r_tot_ORIG[2*(point_intli_vector[ii]-1)], r_tot_ORIG[2*(point_intli_vector[ii]-1)+1]
+			RESIDUAL_CONTACT[2*(point_intli_vector[ii]-1)] = r_tot_ORIG[2*(point_intli_vector[ii]-1)]
+			RESIDUAL_CONTACT[2*(point_intli_vector[ii]-1)+1] = r_tot_ORIG[2*(point_intli_vector[ii]-1)+1]
+			#print np.linalg.norm(RESIDUAL_CONTACT)
+			#print np.linalg.norm(r_tot_ORIG)
+
+	#AHORA ENVIO EL RESIDUO AL IDENTER
+	if app_name == 'BLOCK':
+		nsend = 1
+		nrecv = 0
+		send  = Commdomm.iarray(nsend)
+		recv  = Commdomm.iarray(nrecv)
+		send[0] = int(nodes_in_contact.sum(dtype=np.int))
+		CD.__mpi_sendrecv_int__(send, nsend, recv, nrecv, local_comm, commij)
+
+		RESIDUAL = r_tot_ORIG
+		nsend = 4*int(nodes_in_contact.sum(dtype=np.int))
+		nrecv = 1
+		send = Commdomm.darray(nsend)
+		recv = Commdomm.darray(nrecv)
+		count_tmp = 0
+		for ii in range(n_recv):
+			if (nodes_in_contact[ii] == 1):
+				point_intli = map_bound_intli[interior_list_j[ii]-1]
+				send[int(count_tmp*4)] = nodes[point_intli-1][1] + displ[(point_intli-1)*2]
+				send[int(count_tmp*4+1)] = nodes[point_intli-1][2] + displ[(point_intli-1)*2+1]
+				send[int(count_tmp*4+2)] = RESIDUAL[(point_intli-1)*2]
+				send[int(count_tmp*4+3)] = RESIDUAL[(point_intli-1)*2+1]
+				count_tmp += 1
+		CD.__mpi_sendrecv_real__(send, nsend, recv, nrecv, local_comm, commij)
+	
+	
+	if app_name == 'IDENTER':
+		nsend = 0
+		nrecv = 1
+		send  = Commdomm.iarray(nsend)
+		recv  = Commdomm.iarray(nrecv)
+		CD.__mpi_sendrecv_int__(send, nsend, recv, nrecv, local_comm, commij)
+
+		nsend = 0
+		nrecv = recv[0]*4
+		send  = Commdomm.darray(nsend)
+		recv  = Commdomm.darray(nrecv)
+		CD.__mpi_sendrecv_real__(send, nsend, recv, nrecv, local_comm, commij)
+	
+		RESIDUAL = np.zeros((num_nodes*2)) 
+		for ii in range(int(nrecv/4)):
+			dmin1 = 1e10 
+			dmin2 = 1e10
+			for bc in boundary_condition_contact:
+				for eg in element_groups[physical_names[bc][1]]:
+					p1_x = nodes[eg[6]-1][1] + displ[(eg[6]-1)*2]
+					p1_y = nodes[eg[6]-1][2] + displ[(eg[6]-1)*2+1]
+					p2_x = nodes[eg[5]-1][1] + displ[(eg[5]-1)*2]
+					p2_y = nodes[eg[5]-1][2] + displ[(eg[5]-1)*2+1]
+					d1 = np.sqrt(np.power(p1_x-recv[4*ii],2) + np.power(p1_y-recv[4*ii+1],2))
+					d2 = np.sqrt(np.power(p2_x-recv[4*ii],2) + np.power(p2_y-recv[4*ii+1],2))
+					if ((d1 < d2) & (d1 <= dmin1) & (d2 <= dmin2)):
+						dmin1 = d1
+						dmin2 = d2
+						nodemin1 = eg[6]
+						nodemin2 = eg[5]
+						nodemin1x = nodes[eg[6]-1][1] + displ[(eg[6]-1)*2]
+						nodemin1y = nodes[eg[6]-1][2] + displ[(eg[6]-1)*2+1]
+						nodemin2x = nodes[eg[5]-1][1] + displ[(eg[5]-1)*2]
+						nodemin2y = nodes[eg[5]-1][2] + displ[(eg[5]-1)*2+1]
+					elif ((d2 < d1) & (d2 <= dmin1) & (d1 <= dmin2)):
+						dmin1 = d2
+						dmin2 = d1
+						nodemin1 = eg[5]
+						nodemin2 = eg[6]
+						nodemin1x = nodes[eg[5]-1][1] + displ[(eg[5]-1)*2]
+						nodemin1y = nodes[eg[5]-1][2] + displ[(eg[5]-1)*2+1]
+						nodemin2x = nodes[eg[6]-1][1] + displ[(eg[6]-1)*2]
+						nodemin2y = nodes[eg[6]-1][2] + displ[(eg[6]-1)*2+1]
+					else: #d1 = d2
+						if ((d1 <= dmin1) & (d2 <= dmin2)):
+							dmin1 = d1
+							dmin2 = d2
+							nodemin1 = eg[6]
+							nodemin2 = eg[5]
+							nodemin1x = nodes[eg[5]-1][1] + displ[(eg[5]-1)*2]
+							nodemin1y = nodes[eg[5]-1][2] + displ[(eg[5]-1)*2+1]
+							nodemin2x = nodes[eg[6]-1][1] + displ[(eg[6]-1)*2]
+							nodemin2y = nodes[eg[6]-1][2] + displ[(eg[6]-1)*2+1]
+			#
+			slope1 = (nodemin1y - nodemin2y)/(nodemin1x - nodemin2x)
+			oo1 = nodemin1y - slope1*nodemin1x
+			slope2 = -1/slope1
+			oo2 = recv[4*ii+1] - slope2*recv[4*ii]
+			aaa = np.zeros((2,2))
+			bbb = np.zeros((2))
+			aaa[0][0] = -slope1
+			aaa[0][1] = 1 
+			aaa[1][0] = -slope2
+			aaa[1][1] = 1
+			bbb[0] = oo1
+			bbb[1] = oo2
+			intersection = np.linalg.solve(aaa,bbb) 
+			d1 = np.sqrt(np.power(nodemin1x-intersection[0],2) + np.power(nodemin1y-intersection[1],2))
+			d2 = np.sqrt(np.power(nodemin2x-intersection[0],2) + np.power(nodemin2y-intersection[1],2))
+			w1 = d2/(d1+d2)
+			w2 = d1/(d1+d2)
+			RESIDUAL[2*(nodemin1-1)] = RESIDUAL[2*(nodemin1-1)] + w1*recv[4*ii+2]
+			RESIDUAL[2*(nodemin1-1)+1] = RESIDUAL[2*(nodemin1-1)+1] + w1*recv[4*ii+3]
+			RESIDUAL[2*(nodemin2-1)] = RESIDUAL[2*(nodemin2-1)] + w2*recv[4*ii+2]
+			RESIDUAL[2*(nodemin2-1)+1] = RESIDUAL[2*(nodemin2-1)+1] + w2*recv[4*ii+3]
+
+
+
+		norm_ddispl = 1E10	
+		it_counter = 0
+		while (norm_ddispl > eps):
+			external.mod_fortran.dealloca_global_matrices() 
+			external.mod_fortran.displ = displ[0:num_nodes*2]
+			external.mod_fortran.stress_calc_on = False
+			#print "SOY BLOCK, ESTOY EN", z+1, "Y EN LA ITERACION", it_counter+1, "Y VOY A ENSAMBLAR KTOT Y RTOT"
+			external.mod_fortran.assembly_nonlinear()
+			#print "SOY BLOCK, ESTOY EN", z+1, "Y EN LA ITERACION", it_counter+1, "Y TERMINE DE ENSAMBLAR KTOT Y RTOT"
+			k_tot = external.mod_fortran.k_tot
+			r_tot = external.mod_fortran.r_tot
+			k_tot_ORIG = np.copy(k_tot)
+			r_tot_ORIG = np.copy(r_tot)
+
+			#IMPOSE DISPLACEMENT BOUNDARY CONDITIONS
+			for bc in boundary_condition_disp:
+				for eg in element_groups[physical_names[bc][1]]:
+					#(eg[5]-1)*2 component X of the first node
+					#(eg[5]-1)*2+1 component Y of the first node
+					#(eg[6]-1)*2 component X of the second node
+					#(eg[6]-1)*2+1 component Y of the second node
+					for no in range(5,7):
+						if(boundary_condition_disp[bc][0]): #ASK FOR FIX_X
+							for nn in range(num_nodes*2):
+								k_tot[(eg[no]-1)*2][nn] = 0.0 #put zero on the row 	
+								k_tot[nn][(eg[no]-1)*2] = 0.0 	
+							k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
+							r_tot[(eg[no]-1)*2] = 0.0	
+						
+						if(boundary_condition_disp[bc][1]): #ASK FOR FIX_Y
+							for nn in range(num_nodes*2):
+								k_tot[(eg[no]-1)*2+1][nn] = 0.0	
+								k_tot[nn][(eg[no]-1)*2+1] = 0.0
+							k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0	
+							r_tot[(eg[no]-1)*2+1] = 0.0
+
+			
+			ddispl = np.linalg.solve(k_tot,r_tot+RESIDUAL)
+			displ = displ + ddispl[0:num_nodes*2]
+			norm_ddispl = np.linalg.norm(ddispl[0:num_nodes*2])/np.linalg.norm(displ)
+			it_counter = it_counter + 1
+			it_counter_global = it_counter_global + 1
+			print "Newton-Raphson NEUMANN iteration:", app_name, it_counter
+			print "Displacement NEUMANN increment error:", app_name, norm_ddispl
+
+	
+
+
+
+	"""
+	if app_name == 'BLOCK': 
+		release_nodes = np.zeros((num_nodes),dtype=np.int)
+		nodes_in_contact = np.ones((n_recv),dtype=np.int)
+		RESIDUAL = np.dot(k_tot_ORIG,ddispl[0:num_nodes*2]) - r_tot_ORIG
+
+	acc_release = 0
+	while_counter = 0
+	while True:
+		if app_name == 'IDENTER':
+			break
+		if app_name == 'BLOCK':
+			while_counter += 1
+			acc_release_old = acc_release
+			acc_release = 0
+			for ii in range(n_recv):
+				point_intli = map_bound_intli[interior_list_j[ii]-1]
+				reac_x = RESIDUAL[2*(point_intli-1)]
+				reac_y = RESIDUAL[2*(point_intli-1)+1]
+				Rn = -(RESIDUAL[2*(point_intli-1)]*normal_ji[2*ii] + RESIDUAL[2*(point_intli-1)+1]*normal_ji[2*ii+1])
+				if (Rn > 0): #Rn > 0 must be released
+					release_nodes[point_intli-1] = 1
+					nodes_in_contact[ii] = 0
+			for ii in range(num_nodes):
+				acc_release += release_nodes[ii]
+
+			if ((acc_release_old >= acc_release) & (while_counter >= 2)):
+				break
+
+			BB = np.zeros((n_recv - acc_release,num_nodes*2))
+			hh = np.zeros((n_recv - acc_release))
+			ZZ = np.zeros((n_recv - acc_release,n_recv - acc_release))
+			count_tmp = 0
+			for ii in range(n_recv):
+				point_intli = map_bound_intli[interior_list_j[ii]-1]
+				if (release_nodes[point_intli-1] == 0): #apply boundary conditions
+					x_pos = (point_intli-1)*2
+					y_pos = (point_intli-1)*2+1
+					hh[count_tmp] = proje_points_ji[2*ii+1]-nodes[point_intli-1][2]
+					BB[count_tmp][x_pos] = -slope_boun_ji[ii]
+					BB[count_tmp][y_pos] = 1
+					count_tmp += 1
+			k_tot_block = np.bmat( [[k_tot, BB.transpose()], [BB, ZZ]] )
+			r_tot_block = np.concatenate( [r_tot, hh] )
+
+			if(n_recv == 0):
+				displ = np.linalg.solve(k_tot,r_tot)
+			else:
+				displ = np.linalg.solve(k_tot_block,r_tot_block)
+			RESIDUAL = np.dot(k_tot_ORIG,displ[0:num_nodes*2]) - r_tot_ORIG
+	"""
+	#==============================================================================#
+	#BLOCK APPLYS RESTRICTIONS AND RELEASE ADHESION NODES (WHEN THIS POINT IS REACHED, BLOCK IS IN EQUILIBRIUM)
+
+
 
 	CD.locator_destroy()
 
