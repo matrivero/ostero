@@ -1,6 +1,6 @@
 $VolumeDefinition
 BULK 1E6 0.3
 $BoundaryConditionsDisplacement
-LEFT_LATERAL 1 1 0.0 0.0
+LEFT_LATERAL 1 1 0.0 0.0 1 5
 $BoundaryConditionsPressure
 RIGHT_LATERAL 1000.0

@@ -2,6 +2,6 @@ $VolumeDefinition
 TRISTOP 6.896E6 0.32
 TRISBOTTOM 6.896E7 0.32
 $BoundaryConditionsDisplacement
-BOTTOM 1 1 0.0 0.0
+BOTTOM 1 1 0.0 0.0 1 5
 $BoundaryConditionsPressure
 TOP -100000.0
