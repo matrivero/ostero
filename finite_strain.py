@@ -32,9 +32,13 @@ if (len(sys.argv) < 3):
 
 #READ INPUT FILE
 input_file = open(sys.argv[1],'r')
+case_name = 'NONAME' #default
 for line in input_file:
 	line = line.strip()
-	if line.startswith('mesh_path'):
+	if line.startswith('case_name'):
+		line = line.split()
+		case_name = line[1]
+	elif line.startswith('mesh_path'):
 		line = line.split()
 		mesh_path = line[1]
 	elif line.startswith('geometrical_treatment'):
@@ -124,7 +128,7 @@ if geom_treatment == 'NONLINEAR':
 	try:
 		model
 	except NameError:
-		print "Select a valid model for NONLINEAR geometrical treatment: ISOL, BELY, ZIEN or LAUR... bye!"
+		print "Select a valid constitutive model for NONLINEAR geometrical treatment: ISOL, BELY, ZIEN or LAUR... bye!"
 		sys.exit()
 	if model == 'ISOL':
 		try:
@@ -133,22 +137,22 @@ if geom_treatment == 'NONLINEAR':
 			print "Select a valid submodel for NONLINEAR geometrical treatment, ISOLIN model: PLANE_STRESS or PLANE_STRAIN... bye!"
 			sys.exit()
 		if submodel == 'PLANE_STRESS':
-			header_output = 'NONLINEAR_ISOLIN_PLANE_STRESS'
+			header_output = case_name+'_NONLINEAR_ISOLIN_PLANE_STRESS'
 			print "ISOLINEAL MATERIAL MODEL / NONLINEAR FORMULATION / PLANE STRESS APPROXIMATION"
 		elif submodel == 'PLANE_STRAIN':
-			header_output = 'NONLINEAR_ISOLIN_PLANE_STRAIN'
+			header_output = case_name+'_NONLINEAR_ISOLIN_PLANE_STRAIN'
 			print "ISOLINEAL MATERIAL MODEL / NONLINEAR FORMULATION / PLANE STRAIN APPROXIMATION"  
 		else:
 			print "You need a submodel for ISOL model: PLANE_STRESS or PLANE_STRAIN... bye!"
 			sys.exit()
 	elif model == 'BELY':
-		header_output = 'NONLINEAR_BELYTSCHKO'
+		header_output = case_name+'_NONLINEAR_BELYTSCHKO'
 		print "BELYTSCHKO's BOOK / NEO-HOOKEAN MATERIAL MODEL"
 	elif model == 'ZIEN':
-		header_output = 'NONLINEAR_ZIENKIEWICZ'
+		header_output = case_name+'_NONLINEAR_ZIENKIEWICZ'
 		print "ZIENKIEWICZ's BOOK / NEO-HOOKEAN MATERIAL MODEL" 
 	elif model == 'LAUR': 
-		header_output = 'NONLINEAR_LAURSEN'
+		header_output = case_name+'_NONLINEAR_LAURSEN'
 		print "LAURSEN's BOOK / NEO-HOOKEAN MATERIAL MODEL"
 	else:
 		print "This model is not valid for NONLINEAR geometrical treatment... bye!"
@@ -165,10 +169,10 @@ elif geom_treatment == 'LINEAR':
 		print "Select a valid submodel for LINEAR geometrical treatment: PLANE_STRESS or PLANE_STRAIN... bye!"
 		sys.exit()
 	if submodel == 'PLANE_STRESS':
-		header_output = 'LINEAR_PLANE_STRESS'
+		header_output = case_name+'_LINEAR_PLANE_STRESS'
 		print "PLANE STRESS / LINEAR FORMULATION"
 	elif submodel == 'PLANE_STRAIN':
-		header_output = 'LINEAR_PLANE_STRAIN'
+		header_output = case_name+'_LINEAR_PLANE_STRAIN'
 		print "PLANE STRAIN / LINEAR FORMULATION"
 	else:
 		print "Select a valid submodel for LINEAR geometrical treatment: PLANE_STRESS or PLANE_STRAIN... bye!"
@@ -216,12 +220,14 @@ for line in boundary_file:
 			if len(line.split()) == 1:
 				num_bc_disp = eval(line)
 			else:
-				(name, fix_x, fix_y, dx, dy) = line.split()
+				(name, fix_x, fix_y, dx, dy, start, end) = line.split()
 				name = name.replace('"','')
 				boundary_condition_disp[name].append(bool(eval(fix_x)))
 				boundary_condition_disp[name].append(bool(eval(fix_y)))
 				boundary_condition_disp[name].append(eval(dx))
 				boundary_condition_disp[name].append(eval(dy))
+				boundary_condition_disp[name].append(eval(start))
+				boundary_condition_disp[name].append(eval(end))
 		elif readmode == 3: #PRESSURE BOUNDARY DEFINITIONS
 			if len(line.split()) == 1:
 				num_bc_press = eval(line)
@@ -324,6 +330,7 @@ for z in range(int(total_steps)):
 	
 	while (norm_ddispl > eps):
 	
+		external.mod_fortran.dealloca_global_matrices() 
 		if geom_treatment == 'NONLINEAR':	
 			external.mod_fortran.displ = displ
 			external.mod_fortran.stress_calc_on = False
@@ -372,7 +379,7 @@ for z in range(int(total_steps)):
 					center_of_mass_y += nodes[elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][5+node] - 1][2]
 				center_of_mass_x = center_of_mass_x/pnode
 				center_of_mass_y = center_of_mass_y/pnode
-				dot_prod = (center_of_mass_x - coord_nodes[0][0])*normal_x + (center_of_mass_y -coord_nodes[0][1])*normal_y 
+				dot_prod = (center_of_mass_x - coord_nodes[0][0])*normal_x + (center_of_mass_y - coord_nodes[0][1])*normal_y 
 				if dot_prod > 0:
 					normal_x = -normal_x
 					normal_y = -normal_y
@@ -424,24 +431,39 @@ for z in range(int(total_steps)):
 					#(eg[5]-1)*2+1 component Y of the first node
 					#(eg[6]-1)*2 component X of the second node
 					#(eg[6]-1)*2+1 component Y of the second node
-					for no in range(5,7):
-						if(boundary_condition_disp[bc][0]): #ASK FOR FIX_X
-							k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
-							r_tot[(eg[no]-1)*2] = (boundary_condition_disp[bc][2]/int(total_steps))*(z+1)
-							for nn in range(num_nodes*2):
-								if(nn != (eg[no]-1)*2):
-									r_tot[nn] = r_tot[nn] - k_tot[nn][(eg[no]-1)*2]*(boundary_condition_disp[bc][2]/int(total_steps))*(z+1)
-									k_tot[nn][(eg[no]-1)*2] = 0.0
-									k_tot[(eg[no]-1)*2][nn] = 0.0
-
-						if(boundary_condition_disp[bc][1]): #ASK FOR FIX_Y
-							k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0
-							r_tot[(eg[no]-1)*2+1] = (boundary_condition_disp[bc][3]/int(total_steps))*(z+1)
-							for nn in range(num_nodes*2):
-								if(nn != (eg[no]-1)*2+1):
-									r_tot[nn] = r_tot[nn] - k_tot[nn][(eg[no]-1)*2+1]*(boundary_condition_disp[bc][3]/int(total_steps))*(z+1)
-									k_tot[nn][(eg[no]-1)*2+1] = 0.0
-									k_tot[(eg[no]-1)*2+1][nn] = 0.0
+					for ii in range(len(boundary_condition_disp[bc])/6):
+						if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
+							diff_tstep = boundary_condition_disp[bc][6*ii+5] - boundary_condition_disp[bc][6*ii+4] + 1 
+							if (ii == 0):
+								bcx_ant = 0.0
+								bcy_ant = 0.0
+								step_ant = 0
+							else:
+								bcx_ant = boundary_condition_disp[bc][6*(ii-1)+2]
+								bcy_ant = boundary_condition_disp[bc][6*(ii-1)+3]
+								step_ant = boundary_condition_disp[bc][6*(ii-1)+5]
+							for no in range(5,7):
+								if(boundary_condition_disp[bc][6*ii]): #ASK FOR FIX_X
+									k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
+									r_tot[(eg[no]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+									for nn in range(num_nodes*2):
+										if(nn != (eg[no]-1)*2):
+											r_tot[nn] = r_tot[nn] - \
+											k_tot[nn][(eg[no]-1)*2]*\
+											(((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+											k_tot[nn][(eg[no]-1)*2] = 0.0
+											k_tot[(eg[no]-1)*2][nn] = 0.0
+	
+								if(boundary_condition_disp[bc][6*ii+1]): #ASK FOR FIX_Y
+									k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0
+									r_tot[(eg[no]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+									for nn in range(num_nodes*2):
+										if(nn != (eg[no]-1)*2+1):
+											r_tot[nn] = r_tot[nn] - \
+											k_tot[nn][(eg[no]-1)*2+1]*\
+											(((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+											k_tot[nn][(eg[no]-1)*2+1] = 0.0
+											k_tot[(eg[no]-1)*2+1][nn] = 0.0
 
 	
 		ddispl = np.linalg.solve(k_tot,r_tot)
@@ -462,13 +484,14 @@ for z in range(int(total_steps)):
 
 	external.mod_fortran.displ = displ
 	external.mod_fortran.stress_calc_on = True
-	if geom_treatment == 'NONLINEAR':	
+	if geom_treatment == 'NONLINEAR':
 		external.mod_fortran.assembly_nonlinear()
 	elif geom_treatment == 'LINEAR':
 		external.mod_fortran.assembly_linear()
 	strain = external.mod_fortran.strain
 	stress = external.mod_fortran.stress
 
+	external.mod_fortran.dealloca_global_matrices()
 	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
 	external.mod_fortran.dealloca_stress_strain_matrices()
 
