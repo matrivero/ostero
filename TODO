@@ -1,0 +1,4 @@
+-- add volumetric forces (i.e. gravity)
+-- add boundary conditions definition over nodes (displacement or concentrated forces)
+-- add temporal integration (which needs addition of the mass matrix)
+-- add 3D (tetras and hexas) support

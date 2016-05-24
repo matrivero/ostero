@@ -37,19 +37,46 @@ for line in input_file:
 	if line.startswith('mesh_path'):
 		line = line.split()
 		mesh_path = line[1]
+	elif line.startswith('geometrical_treatment'):
+		line = line.split()
+		geom_treatment = line[1]
 	elif line.startswith('constitutive_model'):
 		line = line.split()
 		model = line[1]
+	elif line.startswith('sub_model'):
+		line = line.split()
+		submodel = line[1]
 	elif line.startswith('time_step_size'):
 		line = line.split()
 		time_step_size = line[1]
 	elif line.startswith('total_steps'):
 		line = line.split()
 		total_steps = line[1]
-	elif line.startswith('space_dimension'):
-		line = line.split()
-		space_dim = line[1]
 input_file.close()
+
+try:
+	mesh_path
+except NameError:
+	print "You must define the mesh path... bye!"
+	sys.exit()
+
+try:
+	geom_treatment
+except NameError:
+	print "You must define the geometrical treatment: LINEAR or NONLINEAR... bye!"
+	sys.exit()
+
+try:
+	time_step_size
+except NameError:
+	print "You must define the time step size... bye!"
+	sys.exit()
+
+try:
+	total_steps
+except NameError:
+	print "You must define the total number of calculation steps... bye!"
+	sys.exit()
 
 #READ MESH FILE
 physical_names = defaultdict(list)
@@ -92,6 +119,76 @@ for line in mshfile:
 				element_groups[line[3]].append(line)
 mshfile.close()
 
+#PRINT SOME INFORMATION
+if geom_treatment == 'NONLINEAR':
+	try:
+		model
+	except NameError:
+		print "Select a valid model for NONLINEAR geometrical treatment: ISOL, BELY, ZIEN or LAUR... bye!"
+		sys.exit()
+	if model == 'ISOL':
+		try:
+			submodel
+		except NameError:
+			print "Select a valid submodel for NONLINEAR geometrical treatment, ISOLIN model: PLANE_STRESS or PLANE_STRAIN... bye!"
+			sys.exit()
+		if submodel == 'PLANE_STRESS':
+			header_output = 'NONLINEAR_ISOLIN_PLANE_STRESS'
+			print "ISOLINEAL MATERIAL MODEL / NONLINEAR FORMULATION / PLANE STRESS APPROXIMATION"
+		elif submodel == 'PLANE_STRAIN':
+			header_output = 'NONLINEAR_ISOLIN_PLANE_STRAIN'
+			print "ISOLINEAL MATERIAL MODEL / NONLINEAR FORMULATION / PLANE STRAIN APPROXIMATION"  
+		else:
+			print "You need a submodel for ISOL model: PLANE_STRESS or PLANE_STRAIN... bye!"
+			sys.exit()
+	elif model == 'BELY':
+		header_output = 'NONLINEAR_BELYTSCHKO'
+		print "BELYTSCHKO's BOOK / NEO-HOOKEAN MATERIAL MODEL"
+	elif model == 'ZIEN':
+		header_output = 'NONLINEAR_ZIENKIEWICZ'
+		print "ZIENKIEWICZ's BOOK / NEO-HOOKEAN MATERIAL MODEL" 
+	elif model == 'LAUR': 
+		header_output = 'NONLINEAR_LAURSEN'
+		print "LAURSEN's BOOK / NEO-HOOKEAN MATERIAL MODEL"
+	else:
+		print "This model is not valid for NONLINEAR geometrical treatment... bye!"
+		sys.exit()
+elif geom_treatment == 'LINEAR':
+	try:
+		model
+	except NameError:
+		model = 'DUMMY' #add something in order to define the variable.
+
+	try:
+		submodel
+	except NameError:
+		print "Select a valid submodel for LINEAR geometrical treatment: PLANE_STRESS or PLANE_STRAIN... bye!"
+		sys.exit()
+	if submodel == 'PLANE_STRESS':
+		header_output = 'LINEAR_PLANE_STRESS'
+		print "PLANE STRESS / LINEAR FORMULATION"
+	elif submodel == 'PLANE_STRAIN':
+		header_output = 'LINEAR_PLANE_STRAIN'
+		print "PLANE STRAIN / LINEAR FORMULATION"
+	else:
+		print "Select a valid submodel for LINEAR geometrical treatment: PLANE_STRESS or PLANE_STRAIN... bye!"
+		sys.exit()
+
+#CHECK IF IS A 2D or 3D CASE
+accum_x = 0.0
+accum_y = 0.0
+accum_z = 0.0
+for node in range(num_nodes):
+	accum_x = accum_x + nodes[node][1]
+	accum_y = accum_y + nodes[node][2]
+	accum_z = accum_z + nodes[node][3]
+if ((accum_x == 0.0) or (accum_y == 0.0) or (accum_z == 0.0)):
+	ndime = 2
+else:
+	ndime = 3
+	print "3D cases: available soon"
+	sys.exit()
+
 #READ BOUNDARY FILE
 volume_conditions = defaultdict(list)
 boundary_condition_disp = defaultdict(list)
@@ -132,7 +229,7 @@ for line in boundary_file:
 				(name, pressure) = line.split()
 				name = name.replace('"','')
 				boundary_condition_press[name].append(eval(pressure))
-				# LINK BETWEEN BOUNDARY ELEMENTS AND VOLUME ELEMENTS
+				# LINK BETWEEN BOUNDARY ELEMENTS AND VOLUME ELEMENTS FOR 2D MESHES (2D to 1D)
 				for eg in element_groups[physical_names[name][1]]: #forall pressure boundary elements 
 					for vo in volume_conditions: #forall volume domains
 						for eg2 in element_groups[physical_names[vo][1]]: #forall volume elements
@@ -156,19 +253,14 @@ for vo in volume_conditions:
 	for eg in element_groups[physical_names[vo][1]]:
 		elements_bulk.append(eg)	
 elements_bulk = np.array(elements_bulk)
-lame1_mu = np.zeros((num_elements_bulk))
-lame2_lambda = np.zeros((num_elements_bulk))
-plane = np.zeros((num_elements_bulk))
+young = np.zeros((num_elements_bulk)) 
+poisson = np.zeros((num_elements_bulk))
 ielem = 0
 for vo in volume_conditions:
 	for eg in element_groups[physical_names[vo][1]]:
-		Y = volume_conditions[vo][0]
-		nu = volume_conditions[vo][1]
-		lame2_lambda[ielem] = nu*Y/((1+nu)*(1-2*nu)) 
-		lame1_mu[ielem] = Y/(2*(1+nu))
-		plane[ielem] = (1.0-2.0*nu)/(1.0-nu)
+		young[ielem] = volume_conditions[vo][0]
+		poisson[ielem] = volume_conditions[vo][1]
 		ielem += 1
-#TODO: check if it is plane stress or plane deformation
 
 weight_bounda = np.zeros((2))
 weight_bounda[0] = 1.0
@@ -187,17 +279,19 @@ deriv_bound[1] = 0.5
 displ = np.zeros((num_nodes*2))
 strain = np.zeros((3,num_nodes))
 stress = np.zeros((3,num_nodes))
-writeout.writeoutput(model,-1,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
+writeout.writeoutput(header_output,-1,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
 
 external.mod_fortran.num_nodes = num_nodes
 external.mod_fortran.num_elements_bulk = num_elements_bulk
-external.mod_fortran.model = model
+if geom_treatment == 'NONLINEAR':
+	external.mod_fortran.model = model
+if ((geom_treatment == 'LINEAR') | (model == 'ISOL')):
+	external.mod_fortran.submodel = submodel
 external.mod_fortran.init()
 external.mod_fortran.nodes = nodes
 external.mod_fortran.elements_bulk = elements_bulk
-external.mod_fortran.plane = plane
-external.mod_fortran.lame1_mu = lame1_mu
-external.mod_fortran.lame2_lambda = lame2_lambda
+external.mod_fortran.young = young
+external.mod_fortran.poisson = poisson
 
 ###################################################################JACOBIAN AND DERIVATIVES CALCULATION###################################################################
 external.mod_fortran.deriv_and_detjac_calc()
@@ -216,22 +310,29 @@ for z in range(int(total_steps)):
 	it_counter = 0
 	eps = 0.0001
 	norm_ddispl = 100*eps
-		
-	#IMPOSE DISPLACEMENTS 
-	for bc in boundary_condition_disp:
-		for eg in element_groups[physical_names[bc][1]]:
-			#X COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
-			displ[(eg[5]-1)*2] = (boundary_condition_disp[bc][2]/int(total_steps))*(z+1)
-			displ[(eg[6]-1)*2] = (boundary_condition_disp[bc][2]/int(total_steps))*(z+1)
-			#Y COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
-			displ[(eg[5]-1)*2+1] = (boundary_condition_disp[bc][3]/int(total_steps))*(z+1)
-			displ[(eg[6]-1)*2+1] = (boundary_condition_disp[bc][3]/int(total_steps))*(z+1)
+
+	if geom_treatment == 'NONLINEAR':
+		#IMPOSE DISPLACEMENTS 
+		for bc in boundary_condition_disp:
+			for eg in element_groups[physical_names[bc][1]]:
+				#X COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
+				displ[(eg[5]-1)*2] = (boundary_condition_disp[bc][2]/int(total_steps))*(z+1)
+				displ[(eg[6]-1)*2] = (boundary_condition_disp[bc][2]/int(total_steps))*(z+1)
+				#Y COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
+				displ[(eg[5]-1)*2+1] = (boundary_condition_disp[bc][3]/int(total_steps))*(z+1)
+				displ[(eg[6]-1)*2+1] = (boundary_condition_disp[bc][3]/int(total_steps))*(z+1)
 	
 	while (norm_ddispl > eps):
-		
-		external.mod_fortran.displ = displ
-		external.mod_fortran.stress_calc_on = False
-		external.mod_fortran.assembly()
+	
+		if geom_treatment == 'NONLINEAR':	
+			external.mod_fortran.displ = displ
+			external.mod_fortran.stress_calc_on = False
+			external.mod_fortran.assembly_nonlinear()
+
+		if geom_treatment == 'LINEAR':	
+			external.mod_fortran.stress_calc_on = False
+			external.mod_fortran.assembly_linear()
+
 		k_tot = external.mod_fortran.k_tot
 		r_tot = external.mod_fortran.r_tot
 
@@ -294,44 +395,81 @@ for z in range(int(total_steps)):
 					r_tot[(eg[5+inode]-1)*2+1] = r_tot[(eg[5+inode]-1)*2+1] + r_elem[(2*inode)+1]
 
 		#IMPOSE DISPLACEMENT BOUNDARY CONDITIONS
-		for bc in boundary_condition_disp:
-			for eg in element_groups[physical_names[bc][1]]:
-				#(eg[5]-1)*2 component X of the first node
-				#(eg[5]-1)*2+1 component Y of the first node
-				#(eg[6]-1)*2 component X of the second node
-				#(eg[6]-1)*2+1 component Y of the second node
-				for no in range(5,7):
-					for nn in range(num_nodes*2):
+		if geom_treatment == 'NONLINEAR':
+			for bc in boundary_condition_disp:
+				for eg in element_groups[physical_names[bc][1]]:
+					#(eg[5]-1)*2 component X of the first node
+					#(eg[5]-1)*2+1 component Y of the first node
+					#(eg[6]-1)*2 component X of the second node
+					#(eg[6]-1)*2+1 component Y of the second node
+					for no in range(5,7):
 						if(boundary_condition_disp[bc][0]): #ASK FOR FIX_X
-							k_tot[(eg[no]-1)*2][nn] = 0.0	
-							k_tot[nn][(eg[no]-1)*2] = 0.0	
+							for nn in range(num_nodes*2):
+								k_tot[(eg[no]-1)*2][nn] = 0.0 #put zero on the row 	
+								k_tot[nn][(eg[no]-1)*2] = 0.0 	
+							k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
+							r_tot[(eg[no]-1)*2] = 0.0	
 						
 						if(boundary_condition_disp[bc][1]): #ASK FOR FIX_Y
-							k_tot[(eg[no]-1)*2+1][nn] = 0.0	
-							k_tot[nn][(eg[no]-1)*2+1] = 0.0
-	
-					if(boundary_condition_disp[bc][0]): #ASK FOR FIX_X
-						k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0	
-						r_tot[(eg[no]-1)*2] = 0.0	
+							for nn in range(num_nodes*2):
+								k_tot[(eg[no]-1)*2+1][nn] = 0.0	
+								k_tot[nn][(eg[no]-1)*2+1] = 0.0
+							k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0	
+							r_tot[(eg[no]-1)*2+1] = 0.0
 
-					if(boundary_condition_disp[bc][1]): #ASK FOR FIX_Y
-						k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0	
-						r_tot[(eg[no]-1)*2+1] = 0.0
-					
+		elif geom_treatment == 'LINEAR':
+			for bc in boundary_condition_disp:
+				for eg in element_groups[physical_names[bc][1]]:
+					#(eg[5]-1)*2 component X of the first node
+					#(eg[5]-1)*2+1 component Y of the first node
+					#(eg[6]-1)*2 component X of the second node
+					#(eg[6]-1)*2+1 component Y of the second node
+					for no in range(5,7):
+						if(boundary_condition_disp[bc][0]): #ASK FOR FIX_X
+							k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
+							r_tot[(eg[no]-1)*2] = (boundary_condition_disp[bc][2]/int(total_steps))*(z+1)
+							for nn in range(num_nodes*2):
+								if(nn != (eg[no]-1)*2):
+									r_tot[nn] = r_tot[nn] - k_tot[nn][(eg[no]-1)*2]*(boundary_condition_disp[bc][2]/int(total_steps))*(z+1)
+									k_tot[nn][(eg[no]-1)*2] = 0.0
+									k_tot[(eg[no]-1)*2][nn] = 0.0
+
+						if(boundary_condition_disp[bc][1]): #ASK FOR FIX_Y
+							k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0
+							r_tot[(eg[no]-1)*2+1] = (boundary_condition_disp[bc][3]/int(total_steps))*(z+1)
+							for nn in range(num_nodes*2):
+								if(nn != (eg[no]-1)*2+1):
+									r_tot[nn] = r_tot[nn] - k_tot[nn][(eg[no]-1)*2+1]*(boundary_condition_disp[bc][3]/int(total_steps))*(z+1)
+									k_tot[nn][(eg[no]-1)*2+1] = 0.0
+									k_tot[(eg[no]-1)*2+1][nn] = 0.0
+
+	
 		ddispl = np.linalg.solve(k_tot,r_tot)
 		external.mod_fortran.dealloca_global_matrices()
-		displ_ant = displ
-		displ = displ_ant + ddispl
-		norm_ddispl = np.linalg.norm(displ-displ_ant)/np.linalg.norm(displ)
-		it_counter = it_counter + 1
-		it_counter_global = it_counter_global + 1
-		print "Newton-Raphson iteration:",it_counter
-		print "Displacement increment error:",norm_ddispl
-	
+		if geom_treatment == 'NONLINEAR':
+			norm_ddispl = eps
+			displ_ant = displ
+			displ = displ_ant + ddispl
+			norm_ddispl = np.linalg.norm(displ-displ_ant)/np.linalg.norm(displ)
+			it_counter = it_counter + 1
+			it_counter_global = it_counter_global + 1
+			print "Newton-Raphson iteration:",it_counter
+			print "Displacement increment error:",norm_ddispl
+		elif geom_treatment == 'LINEAR':
+			displ = ddispl
+			norm_ddispl = eps
+			print "Linear solution ok!"
+
+	external.mod_fortran.displ = displ
 	external.mod_fortran.stress_calc_on = True
-	external.mod_fortran.assembly()
+	if geom_treatment == 'NONLINEAR':	
+		external.mod_fortran.assembly_nonlinear()
+	elif geom_treatment == 'LINEAR':
+		external.mod_fortran.assembly_linear()
 	strain = external.mod_fortran.strain
 	stress = external.mod_fortran.stress
-	writeout.writeoutput(model,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
+
+	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
 	external.mod_fortran.dealloca_stress_strain_matrices()
+
 external.mod_fortran.dealloca_init()

@@ -19,9 +19,9 @@
 import sys
 from numpy import *
 
-def writeoutput(argumen,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress):
+def writeoutput(header,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress):
 	
-	vtkfile_ini = open(argumen+'_out.'+str(z+1)+'.vtk','w')
+	vtkfile_ini = open(header+'_out.'+str(z+1)+'.vtk','w')
 	vtkfile_ini.write('# vtk DataFile Version 2.0\n')
 	vtkfile_ini.write('Generated with Solid Solver\n')
 	vtkfile_ini.write('ASCII\n')
