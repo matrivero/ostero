@@ -321,12 +321,23 @@ for z in range(int(total_steps)):
 		#IMPOSE DISPLACEMENTS 
 		for bc in boundary_condition_disp:
 			for eg in element_groups[physical_names[bc][1]]:
-				#X COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
-				displ[(eg[5]-1)*2] = (boundary_condition_disp[bc][2]/int(total_steps))*(z+1)
-				displ[(eg[6]-1)*2] = (boundary_condition_disp[bc][2]/int(total_steps))*(z+1)
-				#Y COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
-				displ[(eg[5]-1)*2+1] = (boundary_condition_disp[bc][3]/int(total_steps))*(z+1)
-				displ[(eg[6]-1)*2+1] = (boundary_condition_disp[bc][3]/int(total_steps))*(z+1)
+				for ii in range(len(boundary_condition_disp[bc])/6):
+					if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
+						diff_tstep = boundary_condition_disp[bc][6*ii+5] - boundary_condition_disp[bc][6*ii+4] + 1 
+						if (ii == 0):
+							bcx_ant = 0.0
+							bcy_ant = 0.0
+							step_ant = 0
+						else:
+							bcx_ant = boundary_condition_disp[bc][6*(ii-1)+2]
+							bcy_ant = boundary_condition_disp[bc][6*(ii-1)+3]
+							step_ant = boundary_condition_disp[bc][6*(ii-1)+5]
+						#X COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
+						displ[(eg[5]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+						displ[(eg[6]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+						#Y COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
+						displ[(eg[5]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+						displ[(eg[6]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
 	
 	while (norm_ddispl > eps):
 	
@@ -409,20 +420,22 @@ for z in range(int(total_steps)):
 					#(eg[5]-1)*2+1 component Y of the first node
 					#(eg[6]-1)*2 component X of the second node
 					#(eg[6]-1)*2+1 component Y of the second node
-					for no in range(5,7):
-						if(boundary_condition_disp[bc][0]): #ASK FOR FIX_X
-							for nn in range(num_nodes*2):
-								k_tot[(eg[no]-1)*2][nn] = 0.0 #put zero on the row 	
-								k_tot[nn][(eg[no]-1)*2] = 0.0 	
-							k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
-							r_tot[(eg[no]-1)*2] = 0.0	
-						
-						if(boundary_condition_disp[bc][1]): #ASK FOR FIX_Y
-							for nn in range(num_nodes*2):
-								k_tot[(eg[no]-1)*2+1][nn] = 0.0	
-								k_tot[nn][(eg[no]-1)*2+1] = 0.0
-							k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0	
-							r_tot[(eg[no]-1)*2+1] = 0.0
+					for ii in range(len(boundary_condition_disp[bc])/6):
+						if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
+							for no in range(5,7):
+								if(boundary_condition_disp[bc][0]): #ASK FOR FIX_X
+									for nn in range(num_nodes*2):
+										k_tot[(eg[no]-1)*2][nn] = 0.0 #put zero on the row 	
+										k_tot[nn][(eg[no]-1)*2] = 0.0 	
+									k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
+									r_tot[(eg[no]-1)*2] = 0.0	
+								
+								if(boundary_condition_disp[bc][1]): #ASK FOR FIX_Y
+									for nn in range(num_nodes*2):
+										k_tot[(eg[no]-1)*2+1][nn] = 0.0	
+										k_tot[nn][(eg[no]-1)*2+1] = 0.0
+									k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0	
+									r_tot[(eg[no]-1)*2+1] = 0.0
 
 		elif geom_treatment == 'LINEAR':
 			for bc in boundary_condition_disp:
