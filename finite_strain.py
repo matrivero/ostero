@@ -353,10 +353,12 @@ for z in range(int(total_steps)):
 							step_ant = boundary_condition_disp[bc][6*(ii-1)+5]
 						#X COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
 						displ[(eg[5]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-						displ[(eg[6]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+						if (physical_names[bc][0] == 1): #0D is a node, 1D element is a line with two nodes. 
+							displ[(eg[6]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
 						#Y COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
 						displ[(eg[5]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-						displ[(eg[6]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+						if (physical_names[bc][0] == 1): #0D is a node, 1D element is a line with two nodes.
+							displ[(eg[6]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
 	
 	while (norm_ddispl > eps):
 	
@@ -430,6 +432,7 @@ for z in range(int(total_steps)):
 				for inode in range(2):
 					r_tot[(eg[5+inode]-1)*2] = r_tot[(eg[5+inode]-1)*2] + r_elem[(2*inode)] 
 					r_tot[(eg[5+inode]-1)*2+1] = r_tot[(eg[5+inode]-1)*2+1] + r_elem[(2*inode)+1]
+				
 
 		#IMPOSE DISPLACEMENT BOUNDARY CONDITIONS
 		if geom_treatment == 'NONLINEAR':
@@ -441,20 +444,37 @@ for z in range(int(total_steps)):
 					#(eg[6]-1)*2+1 component Y of the second node
 					for ii in range(len(boundary_condition_disp[bc])/6):
 						if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
-							for no in range(5,7):
-								if(boundary_condition_disp[bc][0]): #ASK FOR FIX_X
-									for nn in range(num_nodes*2):
-										k_tot[(eg[no]-1)*2][nn] = 0.0 #put zero on the row 	
-										k_tot[nn][(eg[no]-1)*2] = 0.0 	
-									k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
-									r_tot[(eg[no]-1)*2] = 0.0	
+							if (physical_names[bc][0] == 1): #1D boundary element (line)
+								for no in range(5,7):
+									if(boundary_condition_disp[bc][0]): #ASK FOR FIX_X
+										for nn in range(num_nodes*2):
+											k_tot[(eg[no]-1)*2][nn] = 0.0 #put zero on the row 	
+											k_tot[nn][(eg[no]-1)*2] = 0.0 	
+										k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
+										r_tot[(eg[no]-1)*2] = 0.0	
+									
+									if(boundary_condition_disp[bc][1]): #ASK FOR FIX_Y
+										for nn in range(num_nodes*2):
+											k_tot[(eg[no]-1)*2+1][nn] = 0.0	
+											k_tot[nn][(eg[no]-1)*2+1] = 0.0
+										k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0	
+										r_tot[(eg[no]-1)*2+1] = 0.0
+							else:  #0D boundary element (point)
+								for no in range(5,6):  
+									if(boundary_condition_disp[bc][0]): #ASK FOR FIX_X
+										for nn in range(num_nodes*2):
+											k_tot[(eg[no]-1)*2][nn] = 0.0 #put zero on the row 	
+											k_tot[nn][(eg[no]-1)*2] = 0.0 	
+										k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
+										r_tot[(eg[no]-1)*2] = 0.0	
+									
+									if(boundary_condition_disp[bc][1]): #ASK FOR FIX_Y
+										for nn in range(num_nodes*2):
+											k_tot[(eg[no]-1)*2+1][nn] = 0.0	
+											k_tot[nn][(eg[no]-1)*2+1] = 0.0
+										k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0	
+										r_tot[(eg[no]-1)*2+1] = 0.0
 								
-								if(boundary_condition_disp[bc][1]): #ASK FOR FIX_Y
-									for nn in range(num_nodes*2):
-										k_tot[(eg[no]-1)*2+1][nn] = 0.0	
-										k_tot[nn][(eg[no]-1)*2+1] = 0.0
-									k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0	
-									r_tot[(eg[no]-1)*2+1] = 0.0
 
 		elif geom_treatment == 'LINEAR':
 			for bc in boundary_condition_disp:
@@ -474,28 +494,52 @@ for z in range(int(total_steps)):
 								bcx_ant = boundary_condition_disp[bc][6*(ii-1)+2]
 								bcy_ant = boundary_condition_disp[bc][6*(ii-1)+3]
 								step_ant = boundary_condition_disp[bc][6*(ii-1)+5]
-							for no in range(5,7):
-								if(boundary_condition_disp[bc][6*ii]): #ASK FOR FIX_X
-									k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
-									r_tot[(eg[no]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-									for nn in range(num_nodes*2):
-										if(nn != (eg[no]-1)*2):
-											r_tot[nn] = r_tot[nn] - \
-											k_tot[nn][(eg[no]-1)*2]*\
-											(((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-											k_tot[nn][(eg[no]-1)*2] = 0.0
-											k_tot[(eg[no]-1)*2][nn] = 0.0
-	
-								if(boundary_condition_disp[bc][6*ii+1]): #ASK FOR FIX_Y
-									k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0
-									r_tot[(eg[no]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-									for nn in range(num_nodes*2):
-										if(nn != (eg[no]-1)*2+1):
-											r_tot[nn] = r_tot[nn] - \
-											k_tot[nn][(eg[no]-1)*2+1]*\
-											(((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-											k_tot[nn][(eg[no]-1)*2+1] = 0.0
-											k_tot[(eg[no]-1)*2+1][nn] = 0.0
+							if (physical_names[bc][0] == 1): #1D boundary element (line)
+								for no in range(5,7):
+									if(boundary_condition_disp[bc][6*ii]): #ASK FOR FIX_X
+										k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
+										r_tot[(eg[no]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+										for nn in range(num_nodes*2):
+											if(nn != (eg[no]-1)*2):
+												r_tot[nn] = r_tot[nn] - \
+												k_tot[nn][(eg[no]-1)*2]*\
+												(((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+												k_tot[nn][(eg[no]-1)*2] = 0.0
+												k_tot[(eg[no]-1)*2][nn] = 0.0
+		
+									if(boundary_condition_disp[bc][6*ii+1]): #ASK FOR FIX_Y
+										k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0
+										r_tot[(eg[no]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+										for nn in range(num_nodes*2):
+											if(nn != (eg[no]-1)*2+1):
+												r_tot[nn] = r_tot[nn] - \
+												k_tot[nn][(eg[no]-1)*2+1]*\
+												(((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+												k_tot[nn][(eg[no]-1)*2+1] = 0.0
+												k_tot[(eg[no]-1)*2+1][nn] = 0.0
+							else: #0D boundary element (point)
+								for no in range(5,6):
+									if(boundary_condition_disp[bc][6*ii]): #ASK FOR FIX_X
+										k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
+										r_tot[(eg[no]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+										for nn in range(num_nodes*2):
+											if(nn != (eg[no]-1)*2):
+												r_tot[nn] = r_tot[nn] - \
+												k_tot[nn][(eg[no]-1)*2]*\
+												(((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+												k_tot[nn][(eg[no]-1)*2] = 0.0
+												k_tot[(eg[no]-1)*2][nn] = 0.0
+		
+									if(boundary_condition_disp[bc][6*ii+1]): #ASK FOR FIX_Y
+										k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0
+										r_tot[(eg[no]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+										for nn in range(num_nodes*2):
+											if(nn != (eg[no]-1)*2+1):
+												r_tot[nn] = r_tot[nn] - \
+												k_tot[nn][(eg[no]-1)*2+1]*\
+												(((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+												k_tot[nn][(eg[no]-1)*2+1] = 0.0
+												k_tot[(eg[no]-1)*2+1][nn] = 0.0
 
 	
 		ddispl = np.linalg.solve(k_tot,r_tot)

@@ -1,3 +1,4 @@
--- add boundary conditions definition over nodes (displacement or concentrated forces)
+-- add boundary conditions definition over nodes (only concentrated forces, displacements were already implemented)
+-- add user ramp option for pressure (as it is implemented for dirichlet)
 -- add temporal integration (which needs addition of the mass matrix)
 -- add 3D (tetras and hexas) support
