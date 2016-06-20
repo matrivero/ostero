@@ -31,7 +31,11 @@ real*8, allocatable, dimension(:,:) :: weight
 real*8, allocatable, dimension(:) :: displ
 real*8, allocatable, dimension(:) :: young
 real*8, allocatable, dimension(:) :: poisson
+real*8, allocatable, dimension(:) :: density
 logical :: stress_calc_on
+logical :: gravity_calc_on
+real*8 :: grav_magnitude
+real*8, allocatable, dimension(:) :: grav_direction
 
 !outputs deriv_and_detjac_calc
 real*8, allocatable, dimension(:,:) :: det_jac
@@ -86,6 +90,7 @@ pgauss(4,2,2) = 0.577350269189626D0
 
 allocate(young(num_elements_bulk))
 allocate(poisson(num_elements_bulk))
+allocate(density(num_elements_bulk))
 
 allocate(nodes(num_nodes,4))
 allocate(elements_bulk(num_elements_bulk,9))
@@ -350,7 +355,7 @@ nvgij(3,2) = 2
 
 displ_ele = 0.0D0
 
-do e = 1,num_elements_bulk
+do e = 1,num_elements_bulk !ELEMENTS LOOP
   
   lame2_lambda = poisson(e)*young(e)/((1+poisson(e))*(1-2*poisson(e))) 
   lame1_mu = young(e)/(2*(1+poisson(e)))
@@ -605,6 +610,8 @@ do e = 1,num_elements_bulk
       end do
 
       !ELEMENTAL RESIDUAL VECTOR
+      gpvol = det_jac(e,i)*weight(i,pnode-2) 
+      call shapefunc(pnode,i,gpsha)
       do inode = 1,pnode
         idofn = (inode-1)*2
         do idime = 1,2
@@ -612,6 +619,9 @@ do e = 1,num_elements_bulk
           do jdime = 1,2
             r_elem(idofn) = r_elem(idofn) - P(idime,jdime)*deriv(inode,jdime,e,i)*weight(i,pnode-2)*det_jac(e,i)
           end do
+          if (gravity_calc_on) then
+            r_elem(idofn) = r_elem(idofn) + (gpsha(inode)*density(e)*gpvol)*(grav_magnitude*grav_direction(idime))
+          end if
         end do
       end do
     end if
@@ -658,10 +668,8 @@ do e = 1,num_elements_bulk
         k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) = & !k_tot(v1,v1)
           k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) + k_elem((2*i),(2*j))
       end do
-    end do
 
-    !GLOBAL RESIDUAL VECTOR
-    do i = 1,pnode
+      !GLOBAL RESIDUAL VECTOR
       r_tot((elements_bulk(e,(5+i))*2)-1) = r_tot((elements_bulk(e,(5+i))*2)-1) + r_elem((2*i)-1)
       r_tot(elements_bulk(e,(5+i))*2) = r_tot(elements_bulk(e,(5+i))*2) + r_elem(2*i)
     end do
@@ -698,6 +706,7 @@ real*8, dimension(3) :: strain_elem
 real*8 :: gpvol, xmean
 integer*4 :: e, i, j, k, l, m
 integer*4 :: pnode, ngauss, inode, ivoigt, ipoin
+integer*4 :: idofn, idime
 
 if (.not. stress_calc_on) then
   allocate(k_tot(num_nodes*2,num_nodes*2))
@@ -715,7 +724,7 @@ end if
 
 displ_ele = 0.0D0
 
-do e = 1,num_elements_bulk
+do e = 1,num_elements_bulk !ELEMENTS LOOP
   
   if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
     pnode = 3
@@ -784,7 +793,7 @@ do e = 1,num_elements_bulk
   k_elem = 0.0D0
   r_elem = 0.0D0
 
-  do i = 1,ngauss
+  do i = 1,ngauss !GAUSS POINT LOOP
 
     do inode = 1,pnode !B assembly
 
@@ -813,6 +822,7 @@ do e = 1,num_elements_bulk
     end do
 
     if (.not. stress_calc_on) then
+      !ELEMENTAL STIFFNESS MATRIX
       do k = 1,(2*pnode)
         do m = 1,(2*pnode)
           do l = 1,3
@@ -820,6 +830,19 @@ do e = 1,num_elements_bulk
           end do
         end do
       end do
+
+      !ELEMENTAL RESIDUAL VECTOR (GRAVITY CONTRIBUTION)
+      if (gravity_calc_on) then
+        gpvol = det_jac(e,i)*weight(i,pnode-2) 
+        call shapefunc(pnode,i,gpsha)
+        do inode = 1,pnode
+          idofn = (inode-1)*2
+          do idime = 1,2
+            idofn = idofn + 1
+            r_elem(idofn) = r_elem(idofn) + (gpsha(inode)*density(e)*gpvol)*(grav_magnitude*grav_direction(idime))
+          end do
+        end do
+      end if
     end if
 
     if (stress_calc_on) then
@@ -838,6 +861,7 @@ do e = 1,num_elements_bulk
     
   if (.not. stress_calc_on) then
     do i = 1,pnode
+      !GLOBAL STIFFNESS MATRIX
       do j = 1,pnode
         k_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)-1) = & !k_tot(u1,u1)
           k_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)-1) + k_elem((2*i)-1,(2*j)-1)
@@ -848,6 +872,10 @@ do e = 1,num_elements_bulk
         k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) = & !k_tot(v1,v1)
           k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) + k_elem((2*i),(2*j))
       end do
+      
+      !GLOBAL RESIDUAL VECTOR
+      r_tot((elements_bulk(e,(5+i))*2)-1) = r_tot((elements_bulk(e,(5+i))*2)-1) + r_elem((2*i)-1)
+      r_tot(elements_bulk(e,(5+i))*2) = r_tot(elements_bulk(e,(5+i))*2) + r_elem(2*i)
     end do
   end if
 
@@ -907,6 +935,7 @@ deallocate(weight)
 deallocate(pgauss)
 deallocate(young)
 deallocate(poisson)
+deallocate(density)
 deallocate(nodes)
 deallocate(elements_bulk)
 deallocate(displ)

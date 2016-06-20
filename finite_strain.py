@@ -198,6 +198,7 @@ volume_conditions = defaultdict(list)
 boundary_condition_disp = defaultdict(list)
 boundary_condition_press = defaultdict(list)
 link_boundary_volume_elem = defaultdict(list)
+gravity_present = False
 boundary_file = open(sys.argv[2],'r')
 for line in boundary_file:
 	line = line.strip()
@@ -207,46 +208,55 @@ for line in boundary_file:
 		readmode = 2
 	elif line.startswith('$BoundaryConditionsPressure'):
 		readmode = 3
+	elif line.startswith('$Gravity'):
+		readmode = 4
+		gravity_present = True
+
 	elif readmode:
 		if readmode == 1: #BULK DEFINITIONS
-			if len(line.split()) == 1:
-				num_vo = eval(line)
-			else:
-				(name, Y, nu) = line.split()
-				name = name.replace('"','')
-				volume_conditions[name].append(eval(Y))
-				volume_conditions[name].append(eval(nu))
+			try:
+				(name, Y, nu, density) = line.split()
+			except:
+				print "Despite density will only matters (and will be used) if Gravity is activated, I need the input in the Volume Definition"
+				print "If Gravity is not activated, just add some random number for each material and re-run. Bye :("
+				sys.exit()
+			name = name.replace('"','')
+			volume_conditions[name].append(eval(Y))
+			volume_conditions[name].append(eval(nu))
+			volume_conditions[name].append(eval(density))
 		elif readmode == 2: #DISPLACEMENT BOUNDARY DEFINITIONS
-			if len(line.split()) == 1:
-				num_bc_disp = eval(line)
-			else:
-				(name, fix_x, fix_y, dx, dy, start, end) = line.split()
-				name = name.replace('"','')
-				boundary_condition_disp[name].append(bool(eval(fix_x)))
-				boundary_condition_disp[name].append(bool(eval(fix_y)))
-				boundary_condition_disp[name].append(eval(dx))
-				boundary_condition_disp[name].append(eval(dy))
-				boundary_condition_disp[name].append(eval(start))
-				boundary_condition_disp[name].append(eval(end))
+			(name, fix_x, fix_y, dx, dy, start, end) = line.split()
+			name = name.replace('"','')
+			boundary_condition_disp[name].append(bool(eval(fix_x)))
+			boundary_condition_disp[name].append(bool(eval(fix_y)))
+			boundary_condition_disp[name].append(eval(dx))
+			boundary_condition_disp[name].append(eval(dy))
+			boundary_condition_disp[name].append(eval(start))
+			boundary_condition_disp[name].append(eval(end))
 		elif readmode == 3: #PRESSURE BOUNDARY DEFINITIONS
-			if len(line.split()) == 1:
-				num_bc_press = eval(line)
-			else:
-				(name, pressure) = line.split()
-				name = name.replace('"','')
-				boundary_condition_press[name].append(eval(pressure))
-				# LINK BETWEEN BOUNDARY ELEMENTS AND VOLUME ELEMENTS FOR 2D MESHES (2D to 1D)
-				for eg in element_groups[physical_names[name][1]]: #forall pressure boundary elements 
-					for vo in volume_conditions: #forall volume domains
-						for eg2 in element_groups[physical_names[vo][1]]: #forall volume elements
-							if eg2[1] == 2: #TRIANGLE ELEMENT
-								if ((eg[5] == eg2[5]) or (eg[5] == eg2[6]) or (eg[5] == eg2[7])) and \
-									((eg[6] == eg2[5]) or (eg[6] == eg2[6]) or (eg[6] == eg2[7])):
-									link_boundary_volume_elem[name].append(int(eg2[0]))
-							elif eg2[1] == 3: #QUAD ELEMENT
-								if ((eg[5] == eg2[5]) or (eg[5] == eg2[6]) or (eg[5] == eg2[7]) or (eg[5] == eg2[8])) and \
-									((eg[6] == eg2[5]) or (eg[6] == eg2[6]) or (eg[6] == eg2[7]) or (eg[6] == eg2[8])):
-									link_boundary_volume_elem[name].append(int(eg2[0]))
+			(name, pressure) = line.split()
+			name = name.replace('"','')
+			boundary_condition_press[name].append(eval(pressure))
+			# LINK BETWEEN BOUNDARY ELEMENTS AND VOLUME ELEMENTS FOR 2D MESHES (2D to 1D)
+			for eg in element_groups[physical_names[name][1]]: #forall pressure boundary elements 
+				for vo in volume_conditions: #forall volume domains
+					for eg2 in element_groups[physical_names[vo][1]]: #forall volume elements
+						if eg2[1] == 2: #TRIANGLE ELEMENT
+							if ((eg[5] == eg2[5]) or (eg[5] == eg2[6]) or (eg[5] == eg2[7])) and \
+								((eg[6] == eg2[5]) or (eg[6] == eg2[6]) or (eg[6] == eg2[7])):
+								link_boundary_volume_elem[name].append(int(eg2[0]))
+						elif eg2[1] == 3: #QUAD ELEMENT
+							if ((eg[5] == eg2[5]) or (eg[5] == eg2[6]) or (eg[5] == eg2[7]) or (eg[5] == eg2[8])) and \
+								((eg[6] == eg2[5]) or (eg[6] == eg2[6]) or (eg[6] == eg2[7]) or (eg[6] == eg2[8])):
+								link_boundary_volume_elem[name].append(int(eg2[0]))
+		elif readmode == 4: #GRAVITY DEFINITION
+			(grav_magnitude, direction_x, direction_y) = line.split()
+			n_x = eval(direction_x)/np.sqrt(eval(direction_x)*eval(direction_x) + eval(direction_y)*eval(direction_y))
+			n_y = eval(direction_y)/np.sqrt(eval(direction_x)*eval(direction_x) + eval(direction_y)*eval(direction_y))
+			grav_direction = np.zeros((2))
+			grav_direction[0] = n_x
+			grav_direction[1] = n_y
+
 boundary_file.close()
 
 nodes = np.array(nodes)
@@ -261,11 +271,13 @@ for vo in volume_conditions:
 elements_bulk = np.array(elements_bulk)
 young = np.zeros((num_elements_bulk)) 
 poisson = np.zeros((num_elements_bulk))
+density = np.zeros((num_elements_bulk))
 ielem = 0
 for vo in volume_conditions:
 	for eg in element_groups[physical_names[vo][1]]:
 		young[ielem] = volume_conditions[vo][0]
 		poisson[ielem] = volume_conditions[vo][1]
+		density[ielem] = volume_conditions[vo][2]
 		ielem += 1
 
 weight_bounda = np.zeros((2))
@@ -298,6 +310,13 @@ external.mod_fortran.nodes = nodes
 external.mod_fortran.elements_bulk = elements_bulk
 external.mod_fortran.young = young
 external.mod_fortran.poisson = poisson
+external.mod_fortran.density = density
+#IMPOSE GRAVITY
+external.mod_fortran.gravity_calc_on = gravity_present
+if (gravity_present):
+	external.mod_fortran.grav_magnitude = eval(grav_magnitude)
+	external.mod_fortran.grav_direction = grav_direction
+
 
 ###################################################################JACOBIAN AND DERIVATIVES CALCULATION###################################################################
 external.mod_fortran.deriv_and_detjac_calc()
@@ -342,7 +361,7 @@ for z in range(int(total_steps)):
 	while (norm_ddispl > eps):
 	
 		external.mod_fortran.dealloca_global_matrices() 
-		if geom_treatment == 'NONLINEAR':	
+		if geom_treatment == 'NONLINEAR':
 			external.mod_fortran.displ = displ
 			external.mod_fortran.stress_calc_on = False
 			external.mod_fortran.assembly_nonlinear()
