@@ -1,0 +1,6 @@
+$VolumeDefinition
+BULK 6.896E7 0.32 1
+$BoundaryConditionsDisplacement
+LATRIGHT 1 1 0.0 0.0 1 5
+ARRIBAIZQ 0 1 0.0 0.3 1 5
+ABAJOIZQ 0 1 0.0 -0.3 1 5

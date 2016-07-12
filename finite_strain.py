@@ -214,6 +214,7 @@ for line in boundary_file:
 
 	elif readmode:
 		if readmode == 1: #BULK DEFINITIONS
+			if line.startswith('#') or line.startswith('!'): continue
 			try:
 				(name, Y, nu, density) = line.split()
 			except:
@@ -225,6 +226,7 @@ for line in boundary_file:
 			volume_conditions[name].append(eval(nu))
 			volume_conditions[name].append(eval(density))
 		elif readmode == 2: #DISPLACEMENT BOUNDARY DEFINITIONS
+			if line.startswith('#') or line.startswith('!'): continue
 			(name, fix_x, fix_y, dx, dy, start, end) = line.split()
 			name = name.replace('"','')
 			boundary_condition_disp[name].append(bool(eval(fix_x)))
@@ -234,6 +236,7 @@ for line in boundary_file:
 			boundary_condition_disp[name].append(eval(start))
 			boundary_condition_disp[name].append(eval(end))
 		elif readmode == 3: #PRESSURE BOUNDARY DEFINITIONS
+			if line.startswith('#') or line.startswith('!'): continue
 			(name, pressure) = line.split()
 			name = name.replace('"','')
 			boundary_condition_press[name].append(eval(pressure))
@@ -250,6 +253,7 @@ for line in boundary_file:
 								((eg[6] == eg2[5]) or (eg[6] == eg2[6]) or (eg[6] == eg2[7]) or (eg[6] == eg2[8])):
 								link_boundary_volume_elem[name].append(int(eg2[0]))
 		elif readmode == 4: #GRAVITY DEFINITION
+			if line.startswith('#') or line.startswith('!'): continue
 			(grav_magnitude, direction_x, direction_y) = line.split()
 			n_x = eval(direction_x)/np.sqrt(eval(direction_x)*eval(direction_x) + eval(direction_y)*eval(direction_y))
 			n_y = eval(direction_y)/np.sqrt(eval(direction_x)*eval(direction_x) + eval(direction_y)*eval(direction_y))

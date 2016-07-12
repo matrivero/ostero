@@ -1,0 +1,24 @@
+Point(1) = {0, 0, 0, 1.0};
+Point(2) = {102, 0, 0, 1.0};
+Point(3) = {102, 3.12, 0, 1.0};
+Point(4) = {0, 3.12, 0, 1.0};
+Line(1) = {1, 2};
+Line(2) = {2, 3};
+Line(3) = {3, 4};
+Line(4) = {4, 1};
+Transfinite Line{1,3} = 150;
+Transfinite Line{2,4} = 8;
+Line Loop(5) = {1, 2, 3, 4};
+Plane Surface(6) = {5};
+Transfinite Surface{6};
+Recombine Surface {6};
+
+Physical Point("ARRIBAIZQ") = {4};
+Physical Point("ARRIBADER") = {3};
+Physical Point("ABAJOIZQ") = {1};
+Physical Point("ABAJODER") = {2};
+Physical Line("TOP") = {3};
+Physical Line("BOTTOM") = {1};
+Physical Line("LATRIGHT") = {2};
+Physical Line("LATLEFT") = {4};
+Physical Surface("BULK") = {6};
