@@ -576,3 +576,5 @@ for z in range(int(total_steps)):
 	external.mod_fortran.dealloca_stress_strain_matrices()
 
 external.mod_fortran.dealloca_init()
+
+print "\nEXECUTION FINISHED SUCCESSFULLY!\n"
