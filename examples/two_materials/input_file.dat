@@ -1,6 +1,6 @@
+case_name TWO_MATERIALS
 mesh_path two_materials.msh
 geometrical_treatment LINEAR
-constitutive_model ISOL
 sub_model PLANE_STRESS
 time_step_size 0.01
 total_steps 5

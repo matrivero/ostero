@@ -1,7 +1,9 @@
 $VolumeDefinition
-TRISTOP 6.896E6 0.32
-TRISBOTTOM 6.896E7 0.32
+TRISTOP 6.896E6 0.32 0.1
+TRISBOTTOM 6.896E7 0.32 1
 $BoundaryConditionsDisplacement
 BOTTOM 1 1 0.0 0.0 1 5
 $BoundaryConditionsPressure
 TOP -100000.0
+$Gravity
+9.8 0 1
