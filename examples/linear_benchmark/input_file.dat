@@ -1,3 +1,4 @@
+case_name LINEAR_BENCHMARK
 mesh_path linear_benchmark.msh
 geometrical_treatment LINEAR
 sub_model PLANE_STRESS

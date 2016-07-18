@@ -1,3 +1,4 @@
+case_name SQUARE
 mesh_path square.msh
 geometrical_treatment NONLINEAR
 constitutive_model ISOL
