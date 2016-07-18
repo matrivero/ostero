@@ -1,3 +1,4 @@
+case_name COMPLETE
 mesh_path complete.msh
 geometrical_treatment NONLINEAR
 constitutive_model ISOL
