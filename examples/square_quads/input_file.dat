@@ -1,6 +1,7 @@
+case_name SQUARE_QUADS
 mesh_path square_quads.msh
 geometrical_treatment NONLINEAR
 constitutive_model ISOL
 sub_model PLANE_STRESS
-time_step_size 0.01
+time_step_size 1
 total_steps 5
