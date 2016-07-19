@@ -1,6 +1,6 @@
+case_name POINTS
 mesh_path point.msh
 geometrical_treatment NONLINEAR
-constitutive_model ISOL
-sub_model PLANE_STRESS
-time_step_size 0.01
+constitutive_model BELY
+time_step_size 1
 total_steps 5
