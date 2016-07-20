@@ -346,7 +346,7 @@ for z in range(int(total_steps)):
 			for eg in element_groups[physical_names[bc][1]]:
 				for ii in range(len(boundary_condition_disp[bc])/6):
 					if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
-						diff_tstep = boundary_condition_disp[bc][6*ii+5] - boundary_condition_disp[bc][6*ii+4] + 1 
+						diff_tstep = boundary_condition_disp[bc][6*ii+5] - boundary_condition_disp[bc][6*ii+4] + 1
 						if (ii == 0):
 							bcx_ant = 0.0
 							bcy_ant = 0.0
