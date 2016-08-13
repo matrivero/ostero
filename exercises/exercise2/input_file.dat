@@ -1,0 +1,7 @@
+case_name EX1
+mesh_path mast.msh
+geometrical_treatment LINEAR
+sub_model PLANE_STRESS
+time_step_size 0.01
+total_steps 5
+
