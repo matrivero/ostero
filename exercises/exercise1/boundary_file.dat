@@ -1,0 +1,5 @@
+$VolumeDefinition
+BULK 6.9E4 0.33 1
+$BoundaryConditionsDisplacement
+FIXED 1 1 0.0 0.0 1 5
+DIRICHLET 1 0 -1.0 0.0 1 5

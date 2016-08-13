@@ -1,0 +1,8 @@
+case_name EX1
+mesh_path Lbeam.msh
+geometrical_treatment NONLINEAR
+constitutive_model BELY
+sub_model PLANE_STRESS
+time_step_size 0.01
+total_steps 5
+
