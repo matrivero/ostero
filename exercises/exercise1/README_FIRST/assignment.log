@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-2.4-1.40.13 (TeX Live 2012/Debian) (format=pdflatex 2015.3.6)  13 AUG 2016 17:11
+This is pdfTeX, Version 3.1415926-2.4-1.40.13 (TeX Live 2012/Debian) (format=pdflatex 2015.3.6)  16 AUG 2016 11:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -174,31 +174,32 @@ LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <8> on input line 30.
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <6> on input line 30.
-
-<Lbeam.pdf, id=1, 290.45918pt x 118.34099pt>
-File: Lbeam.pdf Graphic file (type pdf)
- <use Lbeam.pdf>
-Package pdftex.def Info: Lbeam.pdf used on input line 40.
-(pdftex.def)             Requested size: 390.0pt x 158.90652pt.
  [1
 
-{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}] [2 <./Lbeam.pdf>] (./assig
-nment.aux) ) 
+{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}] <Lbeam.pdf, id=12, 290.459
+18pt x 118.34099pt>
+File: Lbeam.pdf Graphic file (type pdf)
+
+<use Lbeam.pdf>
+Package pdftex.def Info: Lbeam.pdf used on input line 42.
+(pdftex.def)             Requested size: 390.0pt x 158.90652pt.
+ [2 <./Lbeam.pdf>] (./assignment.aux) ) 
 Here is how much of TeX's memory you used:
  2570 strings out of 495059
  40583 string characters out of 3182031
- 95501 words of memory out of 3000000
+ 94501 words of memory out of 3000000
  5753 multiletter control sequences out of 15000+200000
  8194 words of font info for 29 fonts, out of 3000000 for 9000
  14 hyphenation exceptions out of 8191
- 38i,6n,38p,703b,320s stack positions out of 5000i,500n,10000p,200000b,50000s
-</usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx1
-2.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi12.pfb>
-</usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></usr/s
-hare/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/share/te
-xlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/share/texlive/t
-exmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb>
-Output written on assignment.pdf (2 pages, 79328 bytes).
+ 38i,6n,38p,963b,320s stack positions out of 5000i,500n,10000p,200000b,50000s
+</usr/share/texlive/texmf-dist/fonts/typ
+e1/public/amsfonts/cm/cmbx12.pfb></usr/share/texlive/texmf-dist/fonts/type1/pub
+lic/amsfonts/cm/cmmi12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/am
+sfonts/cm/cmmi8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/
+cm/cmr12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr1
+7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb>
+
+Output written on assignment.pdf (2 pages, 80564 bytes).
 PDF statistics:
  38 PDF objects out of 1000 (max. 8388607)
  26 compressed objects within 1 object stream
