@@ -1,0 +1,7 @@
+case_name EX3
+mesh_path hook.msh
+geometrical_treatment LINEAR
+sub_model PLANE_STRESS
+time_step_size 1
+total_steps 1
+
