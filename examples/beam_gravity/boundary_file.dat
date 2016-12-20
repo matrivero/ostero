@@ -1,0 +1,9 @@
+$VolumeDefinition
+BULK 200E9 0.32 7850
+$BoundaryConditionsDisplacement
+FIXED 1 1 0.0 0.0 1 400
+$Gravity
+9.8 0 -1
+$Transient
+!0.25 0.5
+0.3 0.6

@@ -199,6 +199,7 @@ boundary_condition_disp = defaultdict(list)
 boundary_condition_press = defaultdict(list)
 link_boundary_volume_elem = defaultdict(list)
 gravity_present = False
+transient_problem = False
 boundary_file = open(sys.argv[2],'r')
 for line in boundary_file:
 	line = line.strip()
@@ -210,8 +211,8 @@ for line in boundary_file:
 		readmode = 3
 	elif line.startswith('$Gravity'):
 		readmode = 4
-		gravity_present = True
-
+	elif line.startswith('$Transient'):
+		readmode = 5
 	elif readmode:
 		if readmode == 1: #BULK DEFINITIONS
 			if line.startswith('#') or line.startswith('!'): continue
@@ -254,12 +255,19 @@ for line in boundary_file:
 								link_boundary_volume_elem[name].append(int(eg2[0]))
 		elif readmode == 4: #GRAVITY DEFINITION
 			if line.startswith('#') or line.startswith('!'): continue
+			gravity_present = True
 			(grav_magnitude, direction_x, direction_y) = line.split()
 			n_x = eval(direction_x)/np.sqrt(eval(direction_x)*eval(direction_x) + eval(direction_y)*eval(direction_y))
 			n_y = eval(direction_y)/np.sqrt(eval(direction_x)*eval(direction_x) + eval(direction_y)*eval(direction_y))
 			grav_direction = np.zeros((2))
 			grav_direction[0] = n_x
 			grav_direction[1] = n_y
+		elif readmode == 5: #NEWMARK - BETA AND GAMMA VALUES
+			if line.startswith('#') or line.startswith('!'): continue
+			transient_problem = True
+			(beta_new, gamma_new) = line.split()
+			beta_newmark = eval(beta_new)
+			gamma_newmark = eval(gamma_new)
 
 boundary_file.close()
 
@@ -299,6 +307,10 @@ deriv_bound[0] = -0.5
 deriv_bound[1] = 0.5
 
 displ = np.zeros((num_nodes*2))
+veloc = np.zeros((num_nodes*2)) #---> initial condition for velocity = 0
+accel = np.zeros((num_nodes*2)) #---> only initializing the acceleration array
+dt = float(time_step_size)
+dt2 = float(time_step_size)*float(time_step_size)
 strain = np.zeros((3,num_nodes))
 stress = np.zeros((3,num_nodes))
 writeout.writeoutput(header_output,-1,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
@@ -341,6 +353,13 @@ for z in range(int(total_steps)):
 	norm_ddispl = 100*eps
 
 	if geom_treatment == 'NONLINEAR':
+
+		#NEWMARK - ESTIMATE NEXT SOLUTION - ASSUMING A NULL ACCELERATION FOR THE FIRST TIME STEP
+		if transient_problem:
+			displ_mono = displ + dt*veloc + (dt2/2)*(1-2*beta_newmark)*accel 
+			displ = displ_mono
+			veloc_mono = veloc + (1-gamma_newmark)*dt*accel
+
 		#IMPOSE DISPLACEMENTS 
 		for bc in boundary_condition_disp:
 			for eg in element_groups[physical_names[bc][1]]:
@@ -363,7 +382,7 @@ for z in range(int(total_steps)):
 						displ[(eg[5]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
 						if (physical_names[bc][0] == 1): #0D is a node, 1D element is a line with two nodes.
 							displ[(eg[6]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-	
+
 	while (norm_ddispl > eps):
 	
 		external.mod_fortran.dealloca_global_matrices() 
@@ -377,6 +396,7 @@ for z in range(int(total_steps)):
 			external.mod_fortran.assembly_linear()
 
 		k_tot = external.mod_fortran.k_tot
+		m_tot = external.mod_fortran.m_tot
 		r_tot = external.mod_fortran.r_tot
 
 		#IMPOSE PRESSURE BOUNDARY CONDITIONS
@@ -436,7 +456,16 @@ for z in range(int(total_steps)):
 				for inode in range(2):
 					r_tot[(eg[5+inode]-1)*2] = r_tot[(eg[5+inode]-1)*2] + r_elem[(2*inode)] 
 					r_tot[(eg[5+inode]-1)*2+1] = r_tot[(eg[5+inode]-1)*2+1] + r_elem[(2*inode)+1]
-				
+
+		#NEWMARK STUFF - BY NOW ONLY FOR NONLINEAR MODEL
+		if transient_problem:
+			if geom_treatment == 'NONLINEAR':
+				#INERTIAL CONTRIBUTION TO JACOBIAN
+				k_tot = np.add(m_tot*(1/(beta_newmark*dt2)),k_tot)
+				#INERTIAL CONTRIBUTION TO RHS
+				accel = (1/(beta_newmark*dt2))*(displ-displ_mono)
+				veloc = veloc_mono + gamma_newmark*dt*accel
+				r_tot = np.add(np.dot(-m_tot,accel),r_tot)
 
 		#IMPOSE DISPLACEMENT BOUNDARY CONDITIONS
 		if geom_treatment == 'NONLINEAR':

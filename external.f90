@@ -46,6 +46,7 @@ real*8, allocatable, dimension(:) :: vmass
 
 !outputs assembly
 real*8, allocatable, dimension(:,:) :: k_tot
+real*8, allocatable, dimension(:,:) :: m_tot
 real*8, allocatable, dimension(:) :: r_tot
 real*8, allocatable, dimension(:,:) :: strain
 real*8, allocatable, dimension(:,:) :: stress
@@ -311,6 +312,7 @@ real*8, dimension(2,2,2,2) :: dPdF
 integer*4 :: anode,bnode,inode,adofn,bdofn,idofn
 integer*4 :: idime,jdime,kdime,ldime
 real*8, dimension(8,8) :: k_elem
+real*8, dimension(8,8) :: m_elem
 real*8, dimension(8) :: r_elem
 real*8 :: det_F
 real*8, dimension(2,2) :: F
@@ -328,8 +330,10 @@ real*8 :: lame2_lambda,lame1_mu,plane
 
 if (.not. stress_calc_on) then
   allocate(k_tot(num_nodes*2,num_nodes*2))
+  allocate(m_tot(num_nodes*2,num_nodes*2))
   allocate(r_tot(num_nodes*2))
   k_tot = 0.0D0
+  m_tot = 0.0D0
   r_tot = 0.0D0
 end if
 
@@ -391,6 +395,7 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
   end if
 
   k_elem = 0.0D0
+  m_elem = 0.0D0
   r_elem = 0.0D0
 
   do i = 1,ngauss !GAUSS POINT LOOP
@@ -609,6 +614,19 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
         end do
       end do
 
+      !ELEMENTAL MASS MATRIX
+      gpvol = det_jac(e,i)*weight(i,pnode-2) 
+      call shapefunc(pnode,i,gpsha)
+      do idime = 1,2
+        do anode = 1,pnode
+          adofn = (anode-1)*2+idime
+          do bnode = 1,pnode
+              bdofn = (bnode-1)*2+idime
+              m_elem(adofn,bdofn) = m_elem(adofn,bdofn) + density(e)*gpsha(anode)*gpsha(bnode)*gpvol
+          end do
+        end do
+      end do
+
       !ELEMENTAL RESIDUAL VECTOR
       gpvol = det_jac(e,i)*weight(i,pnode-2) 
       call shapefunc(pnode,i,gpsha)
@@ -667,6 +685,15 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
           k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)-1) + k_elem((2*i),(2*j)-1)
         k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) = & !k_tot(v1,v1)
           k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) + k_elem((2*i),(2*j))
+
+        m_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)-1) = & !m_tot(u1,u1)
+          m_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)-1) + m_elem((2*i)-1,(2*j)-1)
+        m_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)) = & !m_tot(u1,v1)
+          m_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)) + m_elem((2*i)-1,(2*j))
+        m_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)-1) = & !m_tot(v1,u1)
+          m_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)-1) + m_elem((2*i),(2*j)-1)
+        m_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) = & !m_tot(v1,v1)
+          m_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) + m_elem((2*i),(2*j))
       end do
 
       !GLOBAL RESIDUAL VECTOR
@@ -696,6 +723,7 @@ implicit none
 
 real*8, dimension(8) :: displ_ele
 real*8, dimension(8,8) :: k_elem
+real*8, dimension(8,8) :: m_elem
 real*8, dimension(8) :: r_elem
 real*8, dimension(3,8) :: B
 real*8, dimension(8,3) :: Bt
@@ -705,13 +733,16 @@ real*8, dimension(4) :: gpsha
 real*8, dimension(3) :: strain_elem
 real*8 :: gpvol, xmean
 integer*4 :: e, i, j, k, l, m
+integer*4 :: anode, bnode, adofn, bdofn
 integer*4 :: pnode, ngauss, inode, ivoigt, ipoin
 integer*4 :: idofn, idime
 
 if (.not. stress_calc_on) then
   allocate(k_tot(num_nodes*2,num_nodes*2))
+  allocate(m_tot(num_nodes*2,num_nodes*2))
   allocate(r_tot(num_nodes*2))
   k_tot = 0.0D0
+  m_tot = 0.0D0
   r_tot = 0.0D0
 end if
 
@@ -791,6 +822,7 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
   end if
 
   k_elem = 0.0D0
+  m_elem = 0.0D0
   r_elem = 0.0D0
 
   do i = 1,ngauss !GAUSS POINT LOOP
@@ -827,6 +859,19 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
         do m = 1,(2*pnode)
           do l = 1,3
             k_elem(k,m) = k_elem(k,m) + Bt(k,l)*TMP(l,m)*det_jac(e,i)*weight(i,pnode-2)
+          end do
+        end do
+      end do
+
+      !ELEMENTAL MASS MATRIX
+      gpvol = det_jac(e,i)*weight(i,pnode-2) 
+      call shapefunc(pnode,i,gpsha)
+      do idime = 1,2
+        do anode = 1,pnode
+          adofn = (anode-1)*2+idime
+          do bnode = 1,pnode
+              bdofn = (bnode-1)*2+idime
+              m_elem(adofn,bdofn) = m_elem(adofn,bdofn) + density(e)*gpsha(anode)*gpsha(bnode)*gpvol
           end do
         end do
       end do
@@ -871,6 +916,15 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
           k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)-1) + k_elem((2*i),(2*j)-1)
         k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) = & !k_tot(v1,v1)
           k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) + k_elem((2*i),(2*j))
+
+        m_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)-1) = & !m_tot(u1,u1)
+          m_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)-1) + m_elem((2*i)-1,(2*j)-1)
+        m_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)) = & !m_tot(u1,v1)
+          m_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)) + m_elem((2*i)-1,(2*j))
+        m_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)-1) = & !m_tot(v1,u1)
+          m_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)-1) + m_elem((2*i),(2*j)-1)
+        m_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) = & !m_tot(v1,v1)
+          m_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) + m_elem((2*i),(2*j))
       end do
       
       !GLOBAL RESIDUAL VECTOR
@@ -911,6 +965,7 @@ end subroutine assembly_linear
 subroutine dealloca_global_matrices()
 
 if (allocated(k_tot)) deallocate(k_tot)
+if (allocated(m_tot)) deallocate(m_tot)
 if (allocated(r_tot)) deallocate(r_tot)
 
 end subroutine dealloca_global_matrices
