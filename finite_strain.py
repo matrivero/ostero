@@ -354,7 +354,7 @@ for z in range(int(total_steps)):
 
 	if geom_treatment == 'NONLINEAR':
 
-		#NEWMARK - ESTIMATE NEXT SOLUTION - ASSUMING A NULL ACCELERATION FOR THE FIRST TIME STEP
+		#NEWMARK - ESTIMATE NEXT SOLUTION FOR NONLINEAR MODEL (ASSUMING A NULL ACCELERATION FOR THE FIRST TIME STEP)
 		if transient_problem:
 			displ_mono = displ + dt*veloc + (dt2/2)*(1-2*beta_newmark)*accel 
 			displ = displ_mono
@@ -457,15 +457,20 @@ for z in range(int(total_steps)):
 					r_tot[(eg[5+inode]-1)*2] = r_tot[(eg[5+inode]-1)*2] + r_elem[(2*inode)] 
 					r_tot[(eg[5+inode]-1)*2+1] = r_tot[(eg[5+inode]-1)*2+1] + r_elem[(2*inode)+1]
 
-		#NEWMARK STUFF - BY NOW ONLY FOR NONLINEAR MODEL
+		#NEWMARK STUFF
 		if transient_problem:
+			#INERTIAL CONTRIBUTION TO JACOBIAN
+			k_tot = np.add(m_tot*(1/(beta_newmark*dt2)),k_tot)
+			#INERTIAL CONTRIBUTION TO RHS
 			if geom_treatment == 'NONLINEAR':
-				#INERTIAL CONTRIBUTION TO JACOBIAN
-				k_tot = np.add(m_tot*(1/(beta_newmark*dt2)),k_tot)
-				#INERTIAL CONTRIBUTION TO RHS
 				accel = (1/(beta_newmark*dt2))*(displ-displ_mono)
 				veloc = veloc_mono + gamma_newmark*dt*accel
 				r_tot = np.add(np.dot(-m_tot,accel),r_tot)
+			if geom_treatment == 'LINEAR':
+				if it_counter_global == 0: #FIRST GLOBAL ITERATION IN LINEAR MODEL - SOLVE FOR ACCELERATION
+					accel = np.linalg.solve(m_tot,r_tot - np.dot(k_tot,displ))
+				displ_upd = displ + dt*veloc + (0.5-beta_newmark)*dt2*accel
+				r_tot = r_tot + np.dot(m_tot*(1/(beta_newmark*dt2)),displ_upd)
 
 		#IMPOSE DISPLACEMENT BOUNDARY CONDITIONS
 		if geom_treatment == 'NONLINEAR':
@@ -583,13 +588,17 @@ for z in range(int(total_steps)):
 			displ = displ_ant + ddispl
 			norm_ddispl = np.linalg.norm(displ-displ_ant)/np.linalg.norm(displ)
 			it_counter = it_counter + 1
-			it_counter_global = it_counter_global + 1
 			print "Newton-Raphson iteration:",it_counter
 			print "Displacement increment error:",norm_ddispl
 		elif geom_treatment == 'LINEAR':
 			displ = ddispl
 			norm_ddispl = eps
+			if transient_problem:
+				accel_ant = accel
+				accel = (1/(beta_newmark*dt2))*(displ - displ_upd)
+				veloc = veloc + dt*((1-gamma_newmark)*accel_ant + gamma_newmark*accel) 
 			print "Linear solution ok!"
+		it_counter_global = it_counter_global + 1
 
 	external.mod_fortran.displ = displ
 	external.mod_fortran.stress_calc_on = True
