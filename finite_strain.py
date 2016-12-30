@@ -344,6 +344,11 @@ external.mod_fortran.vmass_calc()
 
 it_counter_global = 0
 
+if transient_problem:
+	print "This is a transient problem (taking into account the time derivative)..."
+else:
+	print "This is a quasi-static problem (neglecting the time derivative)..."
+
 for z in range(int(total_steps)):
 
 	print ' '
@@ -579,7 +584,7 @@ for z in range(int(total_steps)):
 												k_tot[nn][(eg[no]-1)*2+1] = 0.0
 												k_tot[(eg[no]-1)*2+1][nn] = 0.0
 
-	
+
 		ddispl = np.linalg.solve(k_tot,r_tot)
 		external.mod_fortran.dealloca_global_matrices()
 		if geom_treatment == 'NONLINEAR':

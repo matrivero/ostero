@@ -579,15 +579,16 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
     end do
 
     !TANGENT OF FIRST PIOLA-KIRCHHOFF STRESS TENSOR WITH RESPECT TO DEFORMATION GRADIENT
+    !SEE SECTION 5.4.8 ELASTICITY TENSORS - BELYTSCHKO's BOOK
     dPdF = 0.0D0
     do j = 1,2
       do k = 1,2
         do l = 1,2
           do m = 1,2
-            dPdF(j,k,l,m) = dPdF(j,k,l,m) + delta_kron(j,l)*S(k,m)
+            dPdF(j,k,l,m) = dPdF(j,k,l,m) + delta_kron(j,l)*S(k,m) !GEOMETRIC STIFFNESS
             do n = 1,2
               do o = 1,2
-                dPdF(j,k,l,m) = dPdF(j,k,l,m) + D(n,k,o,m)*F(j,n)*F(l,o) 
+                dPdF(j,k,l,m) = dPdF(j,k,l,m) + D(n,k,o,m)*F(j,n)*F(l,o) !MATERIAL TANGENT STIFFNESS
               end do
             end do
           end do
