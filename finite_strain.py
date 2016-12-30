@@ -357,7 +357,7 @@ for z in range(int(total_steps)):
 	eps = 0.0001
 	norm_ddispl = 100*eps
 
-	if geom_treatment == 'NONLINEAR':
+	if geom_treatment == 'NONLINEAR' or geom_treatment == 'LINEAR':
 
 		#NEWMARK - ESTIMATE NEXT SOLUTION FOR NONLINEAR MODEL (ASSUMING A NULL ACCELERATION FOR THE FIRST TIME STEP)
 		if transient_problem:
@@ -397,6 +397,7 @@ for z in range(int(total_steps)):
 			external.mod_fortran.assembly_nonlinear()
 
 		if geom_treatment == 'LINEAR':	
+			external.mod_fortran.displ = displ
 			external.mod_fortran.stress_calc_on = False
 			external.mod_fortran.assembly_linear()
 
@@ -478,7 +479,7 @@ for z in range(int(total_steps)):
 				r_tot = r_tot + np.dot(m_tot*(1/(beta_newmark*dt2)),displ_upd)
 
 		#IMPOSE DISPLACEMENT BOUNDARY CONDITIONS
-		if geom_treatment == 'NONLINEAR':
+		if geom_treatment == 'NONLINEAR' or geom_treatment == 'LINEAR':
 			for bc in boundary_condition_disp:
 				for eg in element_groups[physical_names[bc][1]]:
 					#(eg[5]-1)*2 component X of the first node
@@ -519,75 +520,75 @@ for z in range(int(total_steps)):
 										r_tot[(eg[no]-1)*2+1] = 0.0
 								
 
-		elif geom_treatment == 'LINEAR':
-			for bc in boundary_condition_disp:
-				for eg in element_groups[physical_names[bc][1]]:
-					#(eg[5]-1)*2 component X of the first node
-					#(eg[5]-1)*2+1 component Y of the first node
-					#(eg[6]-1)*2 component X of the second node
-					#(eg[6]-1)*2+1 component Y of the second node
-					for ii in range(len(boundary_condition_disp[bc])/6):
-						if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
-							diff_tstep = boundary_condition_disp[bc][6*ii+5] - boundary_condition_disp[bc][6*ii+4] + 1 
-							if (ii == 0):
-								bcx_ant = 0.0
-								bcy_ant = 0.0
-								step_ant = 0
-							else:
-								bcx_ant = boundary_condition_disp[bc][6*(ii-1)+2]
-								bcy_ant = boundary_condition_disp[bc][6*(ii-1)+3]
-								step_ant = boundary_condition_disp[bc][6*(ii-1)+5]
-							if (physical_names[bc][0] == 1): #1D boundary element (line)
-								for no in range(5,7):
-									if(boundary_condition_disp[bc][6*ii]): #ASK FOR FIX_X
-										k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
-										r_tot[(eg[no]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-										for nn in range(num_nodes*2):
-											if(nn != (eg[no]-1)*2):
-												r_tot[nn] = r_tot[nn] - \
-												k_tot[nn][(eg[no]-1)*2]*\
-												(((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-												k_tot[nn][(eg[no]-1)*2] = 0.0
-												k_tot[(eg[no]-1)*2][nn] = 0.0
+		#elif geom_treatment == 'LINEAR':
+			#for bc in boundary_condition_disp:
+				#for eg in element_groups[physical_names[bc][1]]:
+					##(eg[5]-1)*2 component X of the first node
+					##(eg[5]-1)*2+1 component Y of the first node
+					##(eg[6]-1)*2 component X of the second node
+					##(eg[6]-1)*2+1 component Y of the second node
+					#for ii in range(len(boundary_condition_disp[bc])/6):
+						#if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
+							#diff_tstep = boundary_condition_disp[bc][6*ii+5] - boundary_condition_disp[bc][6*ii+4] + 1 
+							#if (ii == 0):
+								#bcx_ant = 0.0
+								#bcy_ant = 0.0
+								#step_ant = 0
+							#else:
+								#bcx_ant = boundary_condition_disp[bc][6*(ii-1)+2]
+								#bcy_ant = boundary_condition_disp[bc][6*(ii-1)+3]
+								#step_ant = boundary_condition_disp[bc][6*(ii-1)+5]
+							#if (physical_names[bc][0] == 1): #1D boundary element (line)
+								#for no in range(5,7):
+									#if(boundary_condition_disp[bc][6*ii]): #ASK FOR FIX_X
+										#k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
+										#r_tot[(eg[no]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+										#for nn in range(num_nodes*2):
+											#if(nn != (eg[no]-1)*2):
+												#r_tot[nn] = r_tot[nn] - \
+												#k_tot[nn][(eg[no]-1)*2]*\
+												#(((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+												#k_tot[nn][(eg[no]-1)*2] = 0.0
+												#k_tot[(eg[no]-1)*2][nn] = 0.0
 		
-									if(boundary_condition_disp[bc][6*ii+1]): #ASK FOR FIX_Y
-										k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0
-										r_tot[(eg[no]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-										for nn in range(num_nodes*2):
-											if(nn != (eg[no]-1)*2+1):
-												r_tot[nn] = r_tot[nn] - \
-												k_tot[nn][(eg[no]-1)*2+1]*\
-												(((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-												k_tot[nn][(eg[no]-1)*2+1] = 0.0
-												k_tot[(eg[no]-1)*2+1][nn] = 0.0
-							else: #0D boundary element (point)
-								for no in range(5,6):
-									if(boundary_condition_disp[bc][6*ii]): #ASK FOR FIX_X
-										k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
-										r_tot[(eg[no]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-										for nn in range(num_nodes*2):
-											if(nn != (eg[no]-1)*2):
-												r_tot[nn] = r_tot[nn] - \
-												k_tot[nn][(eg[no]-1)*2]*\
-												(((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-												k_tot[nn][(eg[no]-1)*2] = 0.0
-												k_tot[(eg[no]-1)*2][nn] = 0.0
+									#if(boundary_condition_disp[bc][6*ii+1]): #ASK FOR FIX_Y
+										#k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0
+										#r_tot[(eg[no]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+										#for nn in range(num_nodes*2):
+											#if(nn != (eg[no]-1)*2+1):
+												#r_tot[nn] = r_tot[nn] - \
+												#k_tot[nn][(eg[no]-1)*2+1]*\
+												#(((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+												#k_tot[nn][(eg[no]-1)*2+1] = 0.0
+												#k_tot[(eg[no]-1)*2+1][nn] = 0.0
+							#else: #0D boundary element (point)
+								#for no in range(5,6):
+									#if(boundary_condition_disp[bc][6*ii]): #ASK FOR FIX_X
+										#k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
+										#r_tot[(eg[no]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+										#for nn in range(num_nodes*2):
+											#if(nn != (eg[no]-1)*2):
+												#r_tot[nn] = r_tot[nn] - \
+												#k_tot[nn][(eg[no]-1)*2]*\
+												#(((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+												#k_tot[nn][(eg[no]-1)*2] = 0.0
+												#k_tot[(eg[no]-1)*2][nn] = 0.0
 		
-									if(boundary_condition_disp[bc][6*ii+1]): #ASK FOR FIX_Y
-										k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0
-										r_tot[(eg[no]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-										for nn in range(num_nodes*2):
-											if(nn != (eg[no]-1)*2+1):
-												r_tot[nn] = r_tot[nn] - \
-												k_tot[nn][(eg[no]-1)*2+1]*\
-												(((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-												k_tot[nn][(eg[no]-1)*2+1] = 0.0
-												k_tot[(eg[no]-1)*2+1][nn] = 0.0
+									#if(boundary_condition_disp[bc][6*ii+1]): #ASK FOR FIX_Y
+										#k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0
+										#r_tot[(eg[no]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+										#for nn in range(num_nodes*2):
+											#if(nn != (eg[no]-1)*2+1):
+												#r_tot[nn] = r_tot[nn] - \
+												#k_tot[nn][(eg[no]-1)*2+1]*\
+												#(((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+												#k_tot[nn][(eg[no]-1)*2+1] = 0.0
+												#k_tot[(eg[no]-1)*2+1][nn] = 0.0
 
 
 		ddispl = np.linalg.solve(k_tot,r_tot)
 		external.mod_fortran.dealloca_global_matrices()
-		if geom_treatment == 'NONLINEAR':
+		if geom_treatment == 'NONLINEAR' or (geom_treatment == 'LINEAR' and (not transient_problem)):
 			norm_ddispl = eps
 			displ_ant = displ
 			displ = displ_ant + ddispl
@@ -595,7 +596,7 @@ for z in range(int(total_steps)):
 			it_counter = it_counter + 1
 			print "Newton-Raphson iteration:",it_counter
 			print "Displacement increment error:",norm_ddispl
-		elif geom_treatment == 'LINEAR':
+		elif geom_treatment == 'LINEAR' and transient_problem:
 			displ = ddispl
 			norm_ddispl = eps
 			if transient_problem:
