@@ -1,0 +1,27 @@
+$-------------------------------------------------------------------
+RUN_DATA
+  ALYA:                   go-solidz-go 
+  LIVE_INFO:              screen
+  OUTPUT:                 gid
+  POSTPROCESS:            domain
+END_RUN_DATA
+$-------------------------------------------------------------------
+PROBLEM_DATA
+  MAXIMUM_NUMBER_GLOBAL= 1
+  TIME_EVOLUTION
+    STEPS= 200
+  END_TIME_EVOLUTION
+  TIME_COUPLING= GLOBAL, PRESCRIBED
+  TIME_STEP_SIZE= 0.01
+$-------------------------------------------------------------------  
+  SOLIDZ_PROBLEM=        ON
+  END_SOLIDZ 
+  PARALL_SERVICE:        OFF
+   OUTPUT_FILE:          NO
+   POSTPROCESS:          MASTER
+   PARTITION:            FACES
+  END_PARALL    
+  HDFPOS_SERVICE:        OFF 
+  END_HDFPOS_SERVICE
+END_PROBLEM_DATA
+$-------------------------------------------------------------------
