@@ -766,26 +766,25 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
     ngauss = 4
   end if
 
-  if (stress_calc_on) then
-    if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
-      displ_ele(1) = displ(elements_bulk(e,6)*2-1)
-      displ_ele(2) = displ(elements_bulk(e,6)*2)
-      displ_ele(3) = displ(elements_bulk(e,7)*2-1)
-      displ_ele(4) = displ(elements_bulk(e,7)*2)
-      displ_ele(5) = displ(elements_bulk(e,8)*2-1)
-      displ_ele(6) = displ(elements_bulk(e,8)*2)
-    else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
-      displ_ele(1) = displ(elements_bulk(e,6)*2-1)
-      displ_ele(2) = displ(elements_bulk(e,6)*2)
-      displ_ele(3) = displ(elements_bulk(e,7)*2-1)
-      displ_ele(4) = displ(elements_bulk(e,7)*2)
-      displ_ele(5) = displ(elements_bulk(e,8)*2-1)
-      displ_ele(6) = displ(elements_bulk(e,8)*2)
-      displ_ele(7) = displ(elements_bulk(e,9)*2-1)
-      displ_ele(8) = displ(elements_bulk(e,9)*2)
-    end if
-    strain_elem = 0.0D0
+
+  if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
+    displ_ele(1) = displ(elements_bulk(e,6)*2-1)
+    displ_ele(2) = displ(elements_bulk(e,6)*2)
+    displ_ele(3) = displ(elements_bulk(e,7)*2-1)
+    displ_ele(4) = displ(elements_bulk(e,7)*2)
+    displ_ele(5) = displ(elements_bulk(e,8)*2-1)
+    displ_ele(6) = displ(elements_bulk(e,8)*2)
+  else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
+    displ_ele(1) = displ(elements_bulk(e,6)*2-1)
+    displ_ele(2) = displ(elements_bulk(e,6)*2)
+    displ_ele(3) = displ(elements_bulk(e,7)*2-1)
+    displ_ele(4) = displ(elements_bulk(e,7)*2)
+    displ_ele(5) = displ(elements_bulk(e,8)*2-1)
+    displ_ele(6) = displ(elements_bulk(e,8)*2)
+    displ_ele(7) = displ(elements_bulk(e,9)*2-1)
+    displ_ele(8) = displ(elements_bulk(e,9)*2)
   end if
+  strain_elem = 0.0D0
 
   if (submodel == 'PLANE_STRESS') then 
 
@@ -904,7 +903,13 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
     end if
 
   end do !end do ngauss
-    
+  
+  do i = 1,(2*pnode)
+      do m = 1,(2*pnode)
+        r_elem(i) = r_elem(i) - k_elem(i,m)*displ_ele(m)
+      end do
+  end do
+  
   if (.not. stress_calc_on) then
     do i = 1,pnode
       !GLOBAL STIFFNESS MATRIX
