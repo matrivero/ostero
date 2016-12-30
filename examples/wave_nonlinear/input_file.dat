@@ -4,4 +4,4 @@ geometrical_treatment NONLINEAR
 constitutive_model ISOL
 sub_model PLANE_STRESS
 time_step_size 0.01
-total_steps 200
+total_steps 150
