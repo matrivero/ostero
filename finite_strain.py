@@ -589,7 +589,6 @@ for z in range(int(total_steps)):
 		ddispl = np.linalg.solve(k_tot,r_tot)
 		external.mod_fortran.dealloca_global_matrices()
 		if geom_treatment == 'NONLINEAR' or (geom_treatment == 'LINEAR' and (not transient_problem)):
-			norm_ddispl = eps
 			displ_ant = displ
 			displ = displ_ant + ddispl
 			norm_ddispl = np.linalg.norm(displ-displ_ant)/np.linalg.norm(displ)
@@ -597,8 +596,10 @@ for z in range(int(total_steps)):
 			print "Newton-Raphson iteration:",it_counter
 			print "Displacement increment error:",norm_ddispl
 		elif geom_treatment == 'LINEAR' and transient_problem:
-			displ = ddispl
-			norm_ddispl = eps
+			displ_ant = displ
+			displ = displ_ant + ddispl
+			norm_ddispl = np.linalg.norm(displ-displ_ant)/np.linalg.norm(displ)
+			it_counter = it_counter + 1
 			if transient_problem:
 				accel_ant = accel
 				accel = (1/(beta_newmark*dt2))*(displ - displ_upd)
