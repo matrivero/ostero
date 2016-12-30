@@ -1,0 +1,20 @@
+$------------------------------------------------------------
+PHYSICAL_PROBLEM
+END_PHYSICAL_PROBLEM
+$------------------------------------------------------------
+NUMERICAL_TREATMENT
+    $ELSEST:       ON
+    $  STRATEGY:   BIN
+    $  NUMBER:     50,50,50
+    $END_ELSEST
+END_NUMERICAL_TREATMENT
+$------------------------------------------------------------
+OUTPUT_&_POST_PROCESS
+  ON_LAST_MESH
+  STEPS = 1
+$  WITNESS_POINTS, NUMBER=1
+$     0.1 0.1 0.4
+$  END_WITNESS_POINTS
+END_OUTPUT_&_POST_PROCESS
+$------------------------------------------------------------
+

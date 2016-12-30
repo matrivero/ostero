@@ -1,0 +1,8 @@
+$VolumeDefinition
+BULK 6.896E7 0.32 200
+$BoundaryConditionsDisplacement
+BOTTOM 1 1 0.0 0.0 1 5
+$BoundaryConditionsPressure
+TOP -10000000.0
+$Transient
+0.5 0.25
