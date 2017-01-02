@@ -36,7 +36,11 @@ logical :: stress_calc_on
 logical :: gravity_calc_on
 real*8 :: grav_magnitude
 real*8, allocatable, dimension(:) :: grav_direction
-
+real*8, allocatable, dimension(:) :: damage
+real*8, allocatable, dimension(:) :: r_0
+real*8, allocatable, dimension(:) :: tau
+real*8, allocatable, dimension(:) :: tau_history
+real*8, allocatable, dimension(:) :: A_damage
 !outputs deriv_and_detjac_calc
 real*8, allocatable, dimension(:,:) :: det_jac
 real*8, allocatable, dimension(:,:,:,:) :: deriv
@@ -92,6 +96,12 @@ pgauss(4,2,2) = 0.577350269189626D0
 allocate(young(num_elements_bulk))
 allocate(poisson(num_elements_bulk))
 allocate(density(num_elements_bulk))
+
+allocate(damage(num_elements_bulk))
+allocate(r_0(num_elements_bulk))
+allocate(tau(num_elements_bulk))
+allocate(tau_history(num_elements_bulk))
+allocate(A_damage(num_elements_bulk))
 
 allocate(nodes(num_nodes,4))
 allocate(elements_bulk(num_elements_bulk,9))
@@ -290,6 +300,55 @@ ok_flag = .true.
 return
 
 end subroutine m22inv
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+subroutine m33inv(mat, inv_mat, det, ok_flag)
+
+implicit none
+
+real*8, dimension(3,3), intent(in)  :: mat
+real*8, dimension(3,3), intent(out) :: inv_mat
+real*8, intent(out)  :: det
+
+real*8, parameter :: eps = 1.0D-10
+real*8  :: c11,c12,c13,c21,c22,c23,c31,c32,c33
+
+logical, intent(out) :: ok_flag
+! Verificar
+ c11 = mat(2,2)*mat(3,3)-mat(3,2)*mat(2,3)
+ c12 = mat(1,3)*mat(3,2)-mat(1,2)*mat(3,3)
+ c13 = mat(1,2)*mat(2,3)-mat(2,2)*mat(1,3)
+ c21 = mat(2,3)*mat(3,1)-mat(3,3)*mat(2,1)
+ c22 = mat(1,1)*mat(3,3)-mat(3,1)*mat(1,3)
+ c23 = mat(1,3)*mat(2,1)-mat(2,3)*mat(1,1)
+ c31 = mat(2,1)*mat(3,2)-mat(3,1)*mat(2,2)
+ c32 = mat(1,2)*mat(3,1)-mat(3,2)*mat(1,1)
+ c33 = mat(1,1)*mat(2,2)-mat(2,1)*mat(1,2)
+ 
+ det=mat(1,1)*c11+mat(1,2)*c21+mat(1,3)*c31
+ 
+ inv_mat(1,1)=c11/det
+ inv_mat(2,1)=c21/det
+ inv_mat(3,1)=c31/det! Verificar
+ inv_mat(1,2)=c12/det
+ inv_mat(2,2)=c22/det
+ inv_mat(3,2)=c32/det
+ inv_mat(1,3)=c13/det
+ inv_mat(2,3)=c23/det
+ inv_mat(3,3)=c33/det
+
+if (abs(det) .le. eps) then
+  inv_mat = 0.0D0
+  ok_flag = .false.
+  return
+end if
+
+ok_flag = .true.
+
+return
+
+end subroutine m33inv
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -757,15 +816,6 @@ end if
 displ_ele = 0.0D0
 
 do e = 1,num_elements_bulk !ELEMENTS LOOP
-  
-  if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
-    pnode = 3
-    ngauss = 3
-  else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
-    pnode = 4
-    ngauss = 4
-  end if
-
 
   if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
     displ_ele(1) = displ(elements_bulk(e,6)*2-1)
@@ -774,6 +824,8 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
     displ_ele(4) = displ(elements_bulk(e,7)*2)
     displ_ele(5) = displ(elements_bulk(e,8)*2-1)
     displ_ele(6) = displ(elements_bulk(e,8)*2)
+    pnode = 3
+    ngauss = 3
   else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
     displ_ele(1) = displ(elements_bulk(e,6)*2-1)
     displ_ele(2) = displ(elements_bulk(e,6)*2)
@@ -783,6 +835,8 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
     displ_ele(6) = displ(elements_bulk(e,8)*2)
     displ_ele(7) = displ(elements_bulk(e,9)*2-1)
     displ_ele(8) = displ(elements_bulk(e,9)*2)
+    pnode = 4
+    ngauss = 4
   end if
   strain_elem = 0.0D0
 
@@ -820,7 +874,8 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
     stop
 
   end if
-
+  C = (1.0-damage(e))*C
+  
   k_elem = 0.0D0
   m_elem = 0.0D0
   r_elem = 0.0D0
@@ -968,6 +1023,148 @@ end subroutine assembly_linear
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+subroutine calculate_damage()
+
+implicit none
+
+real*8, dimension(3)   :: sig_0
+real*8, dimension(3,3) :: C
+real*8, dimension(3,3) :: inv_C
+real*8, dimension(8)   :: displ_ele
+real*8, dimension(3)   :: strain_ele
+real*8, dimension(3,8) :: B
+
+real*8    :: r
+real*8    :: aux
+real*8    :: vol
+real*8    :: det_C
+
+integer*4 :: e
+integer*4 :: m
+integer*4 :: k
+integer*4 :: i
+integer*4 :: j
+integer*4 :: inode
+integer*4 :: pnode
+integer*4 :: ngauss
+
+logical   :: inv_flag
+
+do e = 1,num_elements_bulk !ELEMENTS LOOP
+
+  if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
+    displ_ele(1) = displ(elements_bulk(e,6)*2-1)
+    displ_ele(2) = displ(elements_bulk(e,6)*2)
+    displ_ele(3) = displ(elements_bulk(e,7)*2-1)
+    displ_ele(4) = displ(elements_bulk(e,7)*2)
+    displ_ele(5) = displ(elements_bulk(e,8)*2-1)
+    displ_ele(6) = displ(elements_bulk(e,8)*2)
+    pnode = 3
+    ngauss = 3
+  else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
+    displ_ele(1) = displ(elements_bulk(e,6)*2-1)
+    displ_ele(2) = displ(elements_bulk(e,6)*2)
+    displ_ele(3) = displ(elements_bulk(e,7)*2-1)
+    displ_ele(4) = displ(elements_bulk(e,7)*2)
+    displ_ele(5) = displ(elements_bulk(e,8)*2-1)
+    displ_ele(6) = displ(elements_bulk(e,8)*2)
+    displ_ele(7) = displ(elements_bulk(e,9)*2-1)
+    displ_ele(8) = displ(elements_bulk(e,9)*2)
+    pnode = 4
+    ngauss = 4
+  end if
+  
+
+  if (submodel == 'PLANE_STRESS') then 
+
+    !PLANE STRESS, ISOTROPIC MATERIAL (SIGZZ = 0.0)
+    !ZIENKIEWICZ, VOL. 1, PAG. 90
+    C(1,1) = (young(e)/(1.0D0-poisson(e)**2))*1.0D0 
+    C(1,2) = (young(e)/(1.0D0-poisson(e)**2))*poisson(e)
+    C(1,3) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
+    C(2,1) = (young(e)/(1.0D0-poisson(e)**2))*poisson(e)
+    C(2,2) = (young(e)/(1.0D0-poisson(e)**2))*1.0D0 
+    C(2,3) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
+    C(3,1) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
+    C(3,2) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
+    C(3,3) = (young(e)/(1.0D0-poisson(e)**2))*(1-poisson(e))/2.0D0
+
+  else if(submodel == 'PLANE_STRAIN') then  
+
+    !PLANE STRAIN, ISOTROPIC MATERIAL (SIGZZ != 0.0)integer*4 :: k
+    !ZIENKIEWICZ, VOL. 1, PAG. 91
+    C(1,1) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*(1-poisson(e))
+    C(1,2) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*poisson(e)
+    C(1,3) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0
+    C(2,1) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*poisson(e)
+    C(2,2) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*(1-poisson(e))
+    C(2,3) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0 
+    C(3,1) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0
+    C(3,2) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0
+    C(3,3) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*(1-2.0D0*poisson(e))/2.0D0
+
+  else
+
+    write(*,*) "In LINEAR treatment you need to specify a submodel: PLANE_STRESS or PLANE_STRAIN... bye!"
+    stop
+
+  end if
+  call m33inv(C, inv_C, det_C, inv_flag)
+  if (.not. inv_flag) then
+      write(*,*) "Constitutive Matrix is not invertible... bye!"
+      stop
+  end if
+  
+  sig_0      = 0
+  strain_ele = 0
+  vol        = 0
+  do i = 1,ngauss !GAUSS POINT LOOP
+     do inode = 1,pnode !B assembly
+     
+        B(1,2*inode-1) = deriv(inode,1,e,i) !dh_inode/dx
+        B(1,2*inode)   = 0.0D0 
+        B(2,2*inode-1) = 0.0D0
+        B(2,2*inode)   = deriv(inode,2,e,i) !dh_inode/dy
+        B(3,2*inode-1) = deriv(inode,2,e,i) !dh_inode/dy
+        B(3,2*inode)   = deriv(inode,1,e,i) !dh_inode/dx
+     
+     end do !end do pnode
+          
+     ! esta es una manera gay de calcular la sigma (primero epsilon y despues sigma = C*epsilon) 
+     do k = 1,3
+        do m = 1,2*pnode
+           strain_ele(k) = strain_ele(k) + B(k,m)*displ_ele(m)
+        end do
+     end do
+     do k = 1,3
+        do m = 1,2*pnode
+           sig_0(k) = sig_0(k) + C(k,m)*strain_ele(m)
+        end do
+     end do
+     sig_0 = sig_0 + sig_0 * det_jac(e,i)*weight(i,pnode-2)
+     vol = vol + det_jac(e,i)*weight(i,pnode-2)
+  end do
+  
+  sig_0 = sig_0 / vol
+  
+  ! tau = sqrt(Sig_0 * C_0^-1 * Sig_0)
+  aux = 0.0
+  do i=1,3
+     do j=1,3
+        aux = aux + Sig_0(i) * inv_C(i,j) * Sig_0(j)
+     end do   
+  end do  
+  tau(e) = sqrt(aux)
+
+  r = max(r_0(e),tau_history(e),tau(e))
+  damage(e) =  1-r_0(e)/r * exp(A_damage(e)*(1-r/r_0(e)));
+
+end do
+
+
+end subroutine calculate_damage
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 subroutine dealloca_global_matrices()
 
 if (allocated(k_tot)) deallocate(k_tot)
@@ -1000,6 +1197,11 @@ deallocate(density)
 deallocate(nodes)
 deallocate(elements_bulk)
 deallocate(displ)
+deallocate(damage)
+deallocate(r_0)
+deallocate(tau)
+deallocate(tau_history)
+deallocate(A_damage)
 
 end subroutine dealloca_init
 

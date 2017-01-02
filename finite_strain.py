@@ -30,6 +30,8 @@ if (len(sys.argv) < 3):
 	print "Usage ./finite_strain.py input_file boundary_file"
 	sys.exit()
 
+damage_flag = 'OFF'
+
 #READ INPUT FILE
 input_file = open(sys.argv[1],'r')
 case_name = 'NONAME' #default
@@ -47,6 +49,8 @@ for line in input_file:
 	elif line.startswith('constitutive_model'):
 		line = line.split()
 		model = line[1]
+		if 'PLASTIC_DAMAGE' in line:
+		    damage_flag = 'PLASTIC_DAMAGE'
 	elif line.startswith('sub_model'):
 		line = line.split()
 		submodel = line[1]
@@ -177,6 +181,9 @@ elif geom_treatment == 'LINEAR':
 	else:
 		print "Select a valid submodel for LINEAR geometrical treatment: PLANE_STRESS or PLANE_STRAIN... bye!"
 		sys.exit()
+		
+	if damage_flag != 'OFF':
+		print "DAMAGE ACTIVATED :", damage_flag
 
 #CHECK IF IS A 2D or 3D CASE
 accum_x = 0.0
@@ -313,7 +320,17 @@ dt = float(time_step_size)
 dt2 = float(time_step_size)*float(time_step_size)
 strain = np.zeros((3,num_nodes))
 stress = np.zeros((3,num_nodes))
-writeout.writeoutput(header_output,-1,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
+
+#this variables should be calculated at each integration point but because they depend on the stresses but these are uniform in the interior of each element because we are using linear shape funtions 
+tau         = np.zeros((num_elements_bulk))
+tau_history = np.zeros((num_elements_bulk))
+r_0_initial = 500000.0/5
+r_0         = r_0_initial*np.ones((num_elements_bulk))
+A_0_initial = 0.01
+A_damage    = A_0_initial*np.ones((num_elements_bulk))
+damage      = np.zeros((num_elements_bulk))
+
+writeout.writeoutput(header_output,-1,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress,damage,tau,tau_history)
 
 external.mod_fortran.num_nodes = num_nodes
 external.mod_fortran.num_elements_bulk = num_elements_bulk
@@ -327,6 +344,12 @@ external.mod_fortran.elements_bulk = elements_bulk
 external.mod_fortran.young = young
 external.mod_fortran.poisson = poisson
 external.mod_fortran.density = density
+
+external.mod_fortran.damage      = damage
+external.mod_fortran.r_0         = r_0
+external.mod_fortran.A_damage    = A_damage
+external.mod_fortran.tau_history = tau_history
+
 #IMPOSE GRAVITY
 external.mod_fortran.gravity_calc_on = gravity_present
 if (gravity_present):
@@ -354,8 +377,11 @@ for z in range(int(total_steps)):
 	print ' '
 	print 'Solving time step',z+1,'...'
 	it_counter = 0
-	eps = 0.0001
-	norm_ddispl = 100*eps
+	if damage_flag != 'OFF':
+	    eps = 1.0
+	else:
+	    eps = 0.001
+	norm_generic = 100*eps
 
 	if geom_treatment == 'NONLINEAR' or geom_treatment == 'LINEAR':
 
@@ -387,9 +413,9 @@ for z in range(int(total_steps)):
 						displ[(eg[5]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
 						if (physical_names[bc][0] == 1): #0D is a node, 1D element is a line with two nodes.
 							displ[(eg[6]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-
-	while (norm_ddispl > eps):
-	
+        
+	while (norm_generic > eps):
+	        
 		external.mod_fortran.dealloca_global_matrices() 
 		if geom_treatment == 'NONLINEAR':
 			external.mod_fortran.displ = displ
@@ -518,76 +544,11 @@ for z in range(int(total_steps)):
 											k_tot[nn][(eg[no]-1)*2+1] = 0.0
 										k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0	
 										r_tot[(eg[no]-1)*2+1] = 0.0
-								
 
-		#elif geom_treatment == 'LINEAR':
-			#for bc in boundary_condition_disp:
-				#for eg in element_groups[physical_names[bc][1]]:
-					##(eg[5]-1)*2 component X of the first node
-					##(eg[5]-1)*2+1 component Y of the first node
-					##(eg[6]-1)*2 component X of the second node
-					##(eg[6]-1)*2+1 component Y of the second node
-					#for ii in range(len(boundary_condition_disp[bc])/6):
-						#if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
-							#diff_tstep = boundary_condition_disp[bc][6*ii+5] - boundary_condition_disp[bc][6*ii+4] + 1 
-							#if (ii == 0):
-								#bcx_ant = 0.0
-								#bcy_ant = 0.0
-								#step_ant = 0
-							#else:
-								#bcx_ant = boundary_condition_disp[bc][6*(ii-1)+2]
-								#bcy_ant = boundary_condition_disp[bc][6*(ii-1)+3]
-								#step_ant = boundary_condition_disp[bc][6*(ii-1)+5]
-							#if (physical_names[bc][0] == 1): #1D boundary element (line)
-								#for no in range(5,7):
-									#if(boundary_condition_disp[bc][6*ii]): #ASK FOR FIX_X
-										#k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
-										#r_tot[(eg[no]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-										#for nn in range(num_nodes*2):
-											#if(nn != (eg[no]-1)*2):
-												#r_tot[nn] = r_tot[nn] - \
-												#k_tot[nn][(eg[no]-1)*2]*\
-												#(((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-												#k_tot[nn][(eg[no]-1)*2] = 0.0
-												#k_tot[(eg[no]-1)*2][nn] = 0.0
-		
-									#if(boundary_condition_disp[bc][6*ii+1]): #ASK FOR FIX_Y
-										#k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0
-										#r_tot[(eg[no]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-										#for nn in range(num_nodes*2):
-											#if(nn != (eg[no]-1)*2+1):
-												#r_tot[nn] = r_tot[nn] - \
-												#k_tot[nn][(eg[no]-1)*2+1]*\
-												#(((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-												#k_tot[nn][(eg[no]-1)*2+1] = 0.0
-												#k_tot[(eg[no]-1)*2+1][nn] = 0.0
-							#else: #0D boundary element (point)
-								#for no in range(5,6):
-									#if(boundary_condition_disp[bc][6*ii]): #ASK FOR FIX_X
-										#k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
-										#r_tot[(eg[no]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-										#for nn in range(num_nodes*2):
-											#if(nn != (eg[no]-1)*2):
-												#r_tot[nn] = r_tot[nn] - \
-												#k_tot[nn][(eg[no]-1)*2]*\
-												#(((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-												#k_tot[nn][(eg[no]-1)*2] = 0.0
-												#k_tot[(eg[no]-1)*2][nn] = 0.0
-		
-									#if(boundary_condition_disp[bc][6*ii+1]): #ASK FOR FIX_Y
-										#k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0
-										#r_tot[(eg[no]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-										#for nn in range(num_nodes*2):
-											#if(nn != (eg[no]-1)*2+1):
-												#r_tot[nn] = r_tot[nn] - \
-												#k_tot[nn][(eg[no]-1)*2+1]*\
-												#(((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-												#k_tot[nn][(eg[no]-1)*2+1] = 0.0
-												#k_tot[(eg[no]-1)*2+1][nn] = 0.0
-
-
+                norm_residue = np.linalg.norm(r_tot)
 		ddispl = np.linalg.solve(k_tot,r_tot)
 		external.mod_fortran.dealloca_global_matrices()
+		    
 		if geom_treatment == 'NONLINEAR' or (geom_treatment == 'LINEAR' and (not transient_problem)):
 			displ_ant = displ
 			displ = displ_ant + ddispl
@@ -595,6 +556,7 @@ for z in range(int(total_steps)):
 			it_counter = it_counter + 1
 			print "Newton-Raphson iteration:",it_counter
 			print "Displacement increment error:",norm_ddispl
+			print "Residue norm:",norm_residue
 		elif geom_treatment == 'LINEAR' and transient_problem:
 			displ_ant = displ
 			displ = displ_ant + ddispl
@@ -605,7 +567,26 @@ for z in range(int(total_steps)):
 				accel = (1/(beta_newmark*dt2))*(displ - displ_upd)
 				veloc = veloc + dt*((1-gamma_newmark)*accel_ant + gamma_newmark*accel) 
 			print "Linear solution ok!"
+
+		if damage_flag != 'OFF':
+		    norm_generic = norm_residue
+		else:
+		    norm_generic = norm_ddispl
+		   
+		#con los desplazamientos obtenidos podemos calcular el damage
+		if damage_flag != 'OFF' and geom_treatment == 'LINEAR':
+		    external.mod_fortran.displ = displ
+		    external.mod_fortran.calculate_damage()
+
 		it_counter_global = it_counter_global + 1
+        
+        if damage_flag != 'OFF':
+	    tau = external.mod_fortran.tau
+	    for e in range(num_elements_bulk):
+		if tau_history[e] < tau[e]:
+		    tau_history[e] = tau[e]
+            external.mod_fortran.tau_history = tau_history
+            damage = external.mod_fortran.damage
 
 	external.mod_fortran.displ = displ
 	external.mod_fortran.stress_calc_on = True
@@ -617,7 +598,7 @@ for z in range(int(total_steps)):
 	stress = external.mod_fortran.stress
 
 	external.mod_fortran.dealloca_global_matrices()
-	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress)
+	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress,damage,tau,tau_history)
 	external.mod_fortran.dealloca_stress_strain_matrices()
 
 external.mod_fortran.dealloca_init()
