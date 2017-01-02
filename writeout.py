@@ -19,7 +19,7 @@
 import sys
 from numpy import *
 
-def writeoutput(header,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress):
+def writeoutput(header,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress,damage,tau,tau_history):
 	
 	vtkfile_ini = open(header+'_out.'+str(z+1)+'.vtk','w')
 	vtkfile_ini.write('# vtk DataFile Version 2.0\n')
@@ -162,5 +162,42 @@ def writeoutput(header,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,s
 	vtkfile_ini.write('default\n')
 	for i in range(num_nodes):
 		vtkfile_ini.write(str(stress[2][i]))
+		vtkfile_ini.write('\n')	
+	vtkfile_ini.write('CELL_DATA')
+	vtkfile_ini.write(' ')
+	vtkfile_ini.write(str(num_elements_bulk))
+	vtkfile_ini.write('\n')
+	vtkfile_ini.write('SCALARS')
+	vtkfile_ini.write(' ')
+	vtkfile_ini.write('Damage')
+	vtkfile_ini.write(' ')
+	vtkfile_ini.write('float\n')
+	vtkfile_ini.write('LOOKUP_TABLE')
+	vtkfile_ini.write(' ')
+	vtkfile_ini.write('default\n')
+	for i in range(num_elements_bulk):
+		vtkfile_ini.write(str(damage[i]))
+		vtkfile_ini.write('\n')	
+	vtkfile_ini.write('SCALARS')
+	vtkfile_ini.write(' ')
+	vtkfile_ini.write('Tau')
+	vtkfile_ini.write(' ')
+	vtkfile_ini.write('float\n')
+	vtkfile_ini.write('LOOKUP_TABLE')
+	vtkfile_ini.write(' ')
+	vtkfile_ini.write('default\n')
+	for i in range(num_elements_bulk):
+		vtkfile_ini.write(str(tau[i]))
+		vtkfile_ini.write('\n')	
+	vtkfile_ini.write('SCALARS')
+	vtkfile_ini.write(' ')
+	vtkfile_ini.write('tau_history')
+	vtkfile_ini.write(' ')
+	vtkfile_ini.write('float\n')
+	vtkfile_ini.write('LOOKUP_TABLE')
+	vtkfile_ini.write(' ')
+	vtkfile_ini.write('default\n')
+	for i in range(num_elements_bulk):
+		vtkfile_ini.write(str(tau_history[i]))
 		vtkfile_ini.write('\n')	
 	vtkfile_ini.close()

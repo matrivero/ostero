@@ -1,0 +1,8 @@
+$VolumeDefinition
+# Name   Young Modulus  Poisson Modulus   Density
+  BULK   6.896E7        0.3               1000.0
+$BoundaryConditionsDisplacement
+BOTTOM 1 1 0.0 -0.001 1 10
+TOP    1 1 0.0  0.0 1 10
+$BoundaryConditionsPressure
+LATERALS 0.0
