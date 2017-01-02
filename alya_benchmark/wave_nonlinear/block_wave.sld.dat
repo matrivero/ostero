@@ -63,10 +63,9 @@ FUNCTIONS
       FUNCTION_NUMBER: 1
       TIMESHAPE: DISCRETE
       SHAPEDEFINITION
-      3
+      2
       0.0  0.0  0.0   
-      0.01  0.0  0.005 
-      2.01  0.0  4
+      3.00  0.0 3.0
       END_SHAPEDEFINITION
       END_CONDITION
 END_FUNCTIONS

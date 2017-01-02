@@ -9,7 +9,7 @@ $-------------------------------------------------------------------
 PROBLEM_DATA
   MAXIMUM_NUMBER_GLOBAL= 1
   TIME_EVOLUTION
-    STEPS= 200
+    STEPS= 150
   END_TIME_EVOLUTION
   TIME_COUPLING= GLOBAL, PRESCRIBED
   TIME_STEP_SIZE= 0.01
