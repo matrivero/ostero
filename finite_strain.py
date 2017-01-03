@@ -24,6 +24,7 @@ import numpy as np
 import writeout
 from collections import defaultdict
 import external
+import utils
 
 #PRINT USAGE IF THERE ARE LESS THAN TWO ARGUMENTS
 if (len(sys.argv) < 3):
@@ -31,7 +32,7 @@ if (len(sys.argv) < 3):
 	sys.exit()
 
 damage_flag = 'OFF'
-
+f_vs_d_flag = 'OFF'
 #READ INPUT FILE
 input_file = open(sys.argv[1],'r')
 case_name = 'NONAME' #default
@@ -60,6 +61,10 @@ for line in input_file:
 	elif line.startswith('total_steps'):
 		line = line.split()
 		total_steps = line[1]
+	elif line.startswith('calc_f_vs_d'):
+		line = line.split()
+		physical_f_vs_d = line[1]
+		f_vs_d_flag = 'ON'
 input_file.close()
 
 try:
@@ -85,6 +90,14 @@ try:
 except NameError:
 	print "You must define the total number of calculation steps... bye!"
 	sys.exit()
+	
+if f_vs_d_flag == 'ON':
+	try:
+	    physical_f_vs_d = physical_f_vs_d.replace('"','')
+	    f = open('f_vs_d_'+physical_f_vs_d+'.dat','w')
+	except NameError:
+	    print "You must give the name of the Physical Entity where you want to calculate the curve f vs d... bye!"
+	    sys.exit()
 
 #READ MESH FILE
 physical_names = defaultdict(list)
@@ -576,11 +589,18 @@ for z in range(int(total_steps)):
 		external.mod_fortran.assembly_linear()
 	strain = external.mod_fortran.strain
 	stress = external.mod_fortran.stress
-
+	
+	if f_vs_d_flag == 'ON':
+	    [un,ut,fn,ft] = utils.calc_force_and_disp(physical_f_vs_d,element_groups,physical_names,nodes,displ,stress)
+	    f.write(str(un)+" "+str(ut)+" "+str(fn)+" "+str(ft))
+	    f.write("\n")
+	
 	external.mod_fortran.dealloca_global_matrices()
 	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress,damage,tau,tau_history)
 	external.mod_fortran.dealloca_stress_strain_matrices()
 
 external.mod_fortran.dealloca_init()
+if f_vs_d_flag == 'ON':
+	    f.close()
 
 print "\nEXECUTION FINISHED SUCCESSFULLY!\n"

@@ -1,6 +1,7 @@
-mesh_path traction_test.msh
+mesh_path traction_test_nocorners.msh
 geometrical_treatment LINEAR
 constitutive_model ISOL PLASTIC_DAMAGE
 sub_model PLANE_STRESS
 time_step_size 0.01
-total_steps 10
+total_steps 25
+calc_f_vs_d "BOTTOM"
