@@ -41,6 +41,7 @@ real*8, allocatable, dimension(:) :: r_0
 real*8, allocatable, dimension(:) :: tau
 real*8, allocatable, dimension(:) :: tau_history
 real*8, allocatable, dimension(:) :: A_damage
+
 !outputs deriv_and_detjac_calc
 real*8, allocatable, dimension(:,:) :: det_jac
 real*8, allocatable, dimension(:,:,:,:) :: deriv
@@ -874,7 +875,8 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
     stop
 
   end if
-  C = (1.0-damage(e))*C
+
+  C = (1.0-damage(e))*C !DAMAGE CONSTANT - ONLY USED WHEN DAMAGE MODEL IS ON
   
   k_elem = 0.0D0
   m_elem = 0.0D0
@@ -958,7 +960,8 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
     end if
 
   end do !end do ngauss
-  
+ 
+  !RESIDUAL CALCULATION (R - K*d)
   do i = 1,(2*pnode)
       do m = 1,(2*pnode)
         r_elem(i) = r_elem(i) - k_elem(i,m)*displ_ele(m)
@@ -1074,7 +1077,6 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
     ngauss = 4
   end if
   
-
   if (submodel == 'PLANE_STRESS') then 
 
     !PLANE STRESS, ISOTROPIC MATERIAL (SIGZZ = 0.0)
@@ -1118,6 +1120,7 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
   sig_0      = 0
   strain_ele = 0
   vol        = 0
+
   do i = 1,ngauss !GAUSS POINT LOOP
      do inode = 1,pnode !B assembly
      
@@ -1130,7 +1133,7 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
      
      end do !end do pnode
           
-     ! esta es una manera gay de calcular la sigma (primero epsilon y despues sigma = C*epsilon) 
+     !esta es una manera gay de calcular la sigma (primero epsilon y despues sigma = C*epsilon) 
      do k = 1,3
         do m = 1,2*pnode
            strain_ele(k) = strain_ele(k) + B(k,m)*displ_ele(m)
@@ -1147,7 +1150,7 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
   
   sig_0 = sig_0 / vol
   
-  ! tau = sqrt(Sig_0 * C_0^-1 * Sig_0)
+  !tau = sqrt(Sig_0 * C_0^-1 * Sig_0)
   aux = 0.0
   do i=1,3
      do j=1,3
@@ -1161,10 +1164,10 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
 
 end do
 
-
 end subroutine calculate_damage
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 subroutine dealloca_global_matrices()
 
 if (allocated(k_tot)) deallocate(k_tot)
