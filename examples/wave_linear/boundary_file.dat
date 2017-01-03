@@ -6,6 +6,6 @@ BOUNDARY 0 1 0.0 0.5 1 1
 BOUNDARY 0 1 0.0 0.5 1 200
 $Transient
 #SIN DUMPING:
-0.25 0.5 
+#0.25 0.5 
 #CON DUMPING:
-#0.3 0.6 
+0.3 0.6 
