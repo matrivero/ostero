@@ -377,54 +377,51 @@ for z in range(int(total_steps)):
 	print ' '
 	print 'Solving time step',z+1,'...'
 	it_counter = 0
-	if damage_flag != 'OFF':
-	    eps = 1.0
-	else:
-	    eps = 0.001
+	if geom_treatment == 'LINEAR':
+	    eps = 1.0 #tolerance for residue norm
+	else: #if geom_treatment == 'NONLINEAR'
+	    eps = 0.0001 #tolerance for displacement norm
 	norm_generic = 100*eps
 
-	if geom_treatment == 'NONLINEAR' or geom_treatment == 'LINEAR':
+	#NEWMARK - ESTIMATE NEXT SOLUTION (ASSUMING A NULL ACCELERATION FOR THE FIRST TIME STEP)
+	if transient_problem:
+		displ_mono = displ + dt*veloc + (dt2/2)*(1-2*beta_newmark)*accel 
+		displ = displ_mono
+		veloc_mono = veloc + (1-gamma_newmark)*dt*accel
 
-		#NEWMARK - ESTIMATE NEXT SOLUTION FOR NONLINEAR MODEL (ASSUMING A NULL ACCELERATION FOR THE FIRST TIME STEP)
-		if transient_problem:
-			displ_mono = displ + dt*veloc + (dt2/2)*(1-2*beta_newmark)*accel 
-			displ = displ_mono
-			veloc_mono = veloc + (1-gamma_newmark)*dt*accel
-
-		#IMPOSE DISPLACEMENTS 
-		for bc in boundary_condition_disp:
-			for eg in element_groups[physical_names[bc][1]]:
-				for ii in range(len(boundary_condition_disp[bc])/6):
-					if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
-						diff_tstep = boundary_condition_disp[bc][6*ii+5] - boundary_condition_disp[bc][6*ii+4] + 1
-						if (ii == 0):
-							bcx_ant = 0.0
-							bcy_ant = 0.0
-							step_ant = 0
-						else:
-							bcx_ant = boundary_condition_disp[bc][6*(ii-1)+2]
-							bcy_ant = boundary_condition_disp[bc][6*(ii-1)+3]
-							step_ant = boundary_condition_disp[bc][6*(ii-1)+5]
-						#X COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
-						displ[(eg[5]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-						if (physical_names[bc][0] == 1): #0D is a node, 1D element is a line with two nodes. 
-							displ[(eg[6]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-						#Y COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
-						displ[(eg[5]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-						if (physical_names[bc][0] == 1): #0D is a node, 1D element is a line with two nodes.
-							displ[(eg[6]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-        
+	#IMPOSE DISPLACEMENTS 
+	for bc in boundary_condition_disp:
+		for eg in element_groups[physical_names[bc][1]]:
+			for ii in range(len(boundary_condition_disp[bc])/6):
+				if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
+					diff_tstep = boundary_condition_disp[bc][6*ii+5] - boundary_condition_disp[bc][6*ii+4] + 1
+					if (ii == 0):
+						bcx_ant = 0.0
+						bcy_ant = 0.0
+						step_ant = 0
+					else:
+						bcx_ant = boundary_condition_disp[bc][6*(ii-1)+2]
+						bcy_ant = boundary_condition_disp[bc][6*(ii-1)+3]
+						step_ant = boundary_condition_disp[bc][6*(ii-1)+5]
+					#X COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
+					displ[(eg[5]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+					if (physical_names[bc][0] == 1): #0D is a node, 1D element is a line with two nodes. 
+						displ[(eg[6]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+					#Y COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
+					displ[(eg[5]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+					if (physical_names[bc][0] == 1): #0D is a node, 1D element is a line with two nodes.
+						displ[(eg[6]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+       
+	#START N-R ITERATIONS
 	while (norm_generic > eps):
 	        
 		external.mod_fortran.dealloca_global_matrices() 
+		external.mod_fortran.displ = displ
+		external.mod_fortran.stress_calc_on = False
 		if geom_treatment == 'NONLINEAR':
-			external.mod_fortran.displ = displ
-			external.mod_fortran.stress_calc_on = False
 			external.mod_fortran.assembly_nonlinear()
 
 		if geom_treatment == 'LINEAR':	
-			external.mod_fortran.displ = displ
-			external.mod_fortran.stress_calc_on = False
 			external.mod_fortran.assembly_linear()
 
 		k_tot = external.mod_fortran.k_tot
@@ -494,83 +491,66 @@ for z in range(int(total_steps)):
 			#INERTIAL CONTRIBUTION TO JACOBIAN
 			k_tot = np.add(m_tot*(1/(beta_newmark*dt2)),k_tot)
 			#INERTIAL CONTRIBUTION TO RHS
-			if geom_treatment == 'NONLINEAR':
-				accel = (1/(beta_newmark*dt2))*(displ-displ_mono)
-				veloc = veloc_mono + gamma_newmark*dt*accel
-				r_tot = np.add(np.dot(-m_tot,accel),r_tot)
-			if geom_treatment == 'LINEAR':
-				if it_counter_global == 0: #FIRST GLOBAL ITERATION IN LINEAR MODEL - SOLVE FOR ACCELERATION
-					accel = np.linalg.solve(m_tot,r_tot - np.dot(k_tot,displ))
-				displ_upd = displ + dt*veloc + (0.5-beta_newmark)*dt2*accel
-				r_tot = r_tot + np.dot(m_tot*(1/(beta_newmark*dt2)),displ_upd)
+			accel = (1/(beta_newmark*dt2))*(displ-displ_mono)
+			veloc = veloc_mono + gamma_newmark*dt*accel
+			r_tot = np.add(np.dot(-m_tot,accel),r_tot)
 
 		#IMPOSE DISPLACEMENT BOUNDARY CONDITIONS
-		if geom_treatment == 'NONLINEAR' or geom_treatment == 'LINEAR':
-			for bc in boundary_condition_disp:
-				for eg in element_groups[physical_names[bc][1]]:
-					#(eg[5]-1)*2 component X of the first node
-					#(eg[5]-1)*2+1 component Y of the first node
-					#(eg[6]-1)*2 component X of the second node
-					#(eg[6]-1)*2+1 component Y of the second node
-					for ii in range(len(boundary_condition_disp[bc])/6):
-						if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
-							if (physical_names[bc][0] == 1): #1D boundary element (line)
-								for no in range(5,7):
-									if(boundary_condition_disp[bc][0]): #ASK FOR FIX_X
-										for nn in range(num_nodes*2):
-											k_tot[(eg[no]-1)*2][nn] = 0.0 #put zero on the row 	
-											k_tot[nn][(eg[no]-1)*2] = 0.0 	
-										k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
-										r_tot[(eg[no]-1)*2] = 0.0	
-									
-									if(boundary_condition_disp[bc][1]): #ASK FOR FIX_Y
-										for nn in range(num_nodes*2):
-											k_tot[(eg[no]-1)*2+1][nn] = 0.0	
-											k_tot[nn][(eg[no]-1)*2+1] = 0.0
-										k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0	
-										r_tot[(eg[no]-1)*2+1] = 0.0
-							else:  #0D boundary element (point)
-								for no in range(5,6):  
-									if(boundary_condition_disp[bc][0]): #ASK FOR FIX_X
-										for nn in range(num_nodes*2):
-											k_tot[(eg[no]-1)*2][nn] = 0.0 #put zero on the row 	
-											k_tot[nn][(eg[no]-1)*2] = 0.0 	
-										k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
-										r_tot[(eg[no]-1)*2] = 0.0	
-									
-									if(boundary_condition_disp[bc][1]): #ASK FOR FIX_Y
-										for nn in range(num_nodes*2):
-											k_tot[(eg[no]-1)*2+1][nn] = 0.0	
-											k_tot[nn][(eg[no]-1)*2+1] = 0.0
-										k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0	
-										r_tot[(eg[no]-1)*2+1] = 0.0
+		for bc in boundary_condition_disp:
+			for eg in element_groups[physical_names[bc][1]]:
+				#(eg[5]-1)*2 component X of the first node
+				#(eg[5]-1)*2+1 component Y of the first node
+				#(eg[6]-1)*2 component X of the second node
+				#(eg[6]-1)*2+1 component Y of the second node
+				for ii in range(len(boundary_condition_disp[bc])/6):
+					if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
+						if (physical_names[bc][0] == 1): #1D boundary element (line)
+							for no in range(5,7):
+								if(boundary_condition_disp[bc][0]): #ASK FOR FIX_X
+									for nn in range(num_nodes*2):
+										k_tot[(eg[no]-1)*2][nn] = 0.0 #put zero on the row 	
+										k_tot[nn][(eg[no]-1)*2] = 0.0 	
+									k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
+									r_tot[(eg[no]-1)*2] = 0.0	
+								
+								if(boundary_condition_disp[bc][1]): #ASK FOR FIX_Y
+									for nn in range(num_nodes*2):
+										k_tot[(eg[no]-1)*2+1][nn] = 0.0	
+										k_tot[nn][(eg[no]-1)*2+1] = 0.0
+									k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0	
+									r_tot[(eg[no]-1)*2+1] = 0.0
+						else:  #0D boundary element (point)
+							for no in range(5,6):  
+								if(boundary_condition_disp[bc][0]): #ASK FOR FIX_X
+									for nn in range(num_nodes*2):
+										k_tot[(eg[no]-1)*2][nn] = 0.0 #put zero on the row 	
+										k_tot[nn][(eg[no]-1)*2] = 0.0 	
+									k_tot[(eg[no]-1)*2][(eg[no]-1)*2] = 1.0
+									r_tot[(eg[no]-1)*2] = 0.0	
+								
+								if(boundary_condition_disp[bc][1]): #ASK FOR FIX_Y
+									for nn in range(num_nodes*2):
+										k_tot[(eg[no]-1)*2+1][nn] = 0.0	
+										k_tot[nn][(eg[no]-1)*2+1] = 0.0
+									k_tot[(eg[no]-1)*2+1][(eg[no]-1)*2+1] = 1.0	
+									r_tot[(eg[no]-1)*2+1] = 0.0
 
-                norm_residue = np.linalg.norm(r_tot)
+		#CALL SOLVER
 		ddispl = np.linalg.solve(k_tot,r_tot)
 		external.mod_fortran.dealloca_global_matrices()
-		    
-		if geom_treatment == 'NONLINEAR' or (geom_treatment == 'LINEAR' and (not transient_problem)):
-			displ_ant = displ
-			displ = displ_ant + ddispl
-			norm_ddispl = np.linalg.norm(displ-displ_ant)/np.linalg.norm(displ)
-			it_counter = it_counter + 1
-			print "Newton-Raphson iteration:",it_counter
-			print "Displacement increment error:",norm_ddispl
-			print "Residue norm:",norm_residue
-		elif geom_treatment == 'LINEAR' and transient_problem:
-			displ_ant = displ
-			displ = displ_ant + ddispl
-			norm_ddispl = np.linalg.norm(displ-displ_ant)/np.linalg.norm(displ)
-			it_counter = it_counter + 1
-			if transient_problem:
-				accel_ant = accel
-				accel = (1/(beta_newmark*dt2))*(displ - displ_upd)
-				veloc = veloc + dt*((1-gamma_newmark)*accel_ant + gamma_newmark*accel) 
-			print "Linear solution ok!"
 
-		if damage_flag != 'OFF':
+		displ_ant = displ
+		displ = displ_ant + ddispl
+		norm_ddispl = np.linalg.norm(displ-displ_ant)/np.linalg.norm(displ)
+                norm_residue = np.linalg.norm(r_tot)
+		it_counter = it_counter + 1
+		print "Newton-Raphson iteration:",it_counter
+		print "Displacement increment error:",norm_ddispl
+		print "Residue norm:",norm_residue
+
+		if geom_treatment == 'LINEAR':
 		    norm_generic = norm_residue
-		else:
+		else: #if geom_treatment == 'NONLINEAR'
 		    norm_generic = norm_ddispl
 		   
 		#con los desplazamientos obtenidos podemos calcular el damage
