@@ -19,7 +19,7 @@
 import sys
 from numpy import *
 
-def writeoutput(header,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress,damage,tau,tau_history):
+def writeoutput(header,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress,damage,tau,tau_history,force):
 	
 	vtkfile_ini = open(header+'_out.'+str(z+1)+'.vtk','w')
 	vtkfile_ini.write('# vtk DataFile Version 2.0\n')
@@ -162,6 +162,18 @@ def writeoutput(header,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,s
 	vtkfile_ini.write('default\n')
 	for i in range(num_nodes):
 		vtkfile_ini.write(str(stress[2][i]))
+		vtkfile_ini.write('\n')	
+	vtkfile_ini.write('VECTORS')
+	vtkfile_ini.write(' ')
+	vtkfile_ini.write('int_force')
+	vtkfile_ini.write(' ')
+	vtkfile_ini.write('float\n')
+	for i in range(num_nodes):
+		vtkfile_ini.write(str(force[2*i]))
+		vtkfile_ini.write(' ')
+		vtkfile_ini.write(str(force[(2*i)+1]))
+		vtkfile_ini.write(' ')
+		vtkfile_ini.write('0')
 		vtkfile_ini.write('\n')	
 	vtkfile_ini.write('CELL_DATA')
 	vtkfile_ini.write(' ')

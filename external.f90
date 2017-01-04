@@ -40,7 +40,7 @@ real*8, allocatable, dimension(:) :: damage
 real*8, allocatable, dimension(:) :: r_0
 real*8, allocatable, dimension(:) :: tau
 real*8, allocatable, dimension(:) :: tau_history
-real*8, allocatable, dimension(:) :: A_damage
+real*8, allocatable, dimension(:) :: a_damage
 
 !outputs deriv_and_detjac_calc
 real*8, allocatable, dimension(:,:) :: det_jac
@@ -102,7 +102,7 @@ allocate(damage(num_elements_bulk))
 allocate(r_0(num_elements_bulk))
 allocate(tau(num_elements_bulk))
 allocate(tau_history(num_elements_bulk))
-allocate(A_damage(num_elements_bulk))
+allocate(a_damage(num_elements_bulk))
 
 allocate(nodes(num_nodes,4))
 allocate(elements_bulk(num_elements_bulk,9))
@@ -331,7 +331,7 @@ logical, intent(out) :: ok_flag
  
  inv_mat(1,1)=c11/det
  inv_mat(2,1)=c21/det
- inv_mat(3,1)=c31/det! Verificar
+ inv_mat(3,1)=c31/det
  inv_mat(1,2)=c12/det
  inv_mat(2,2)=c22/det
  inv_mat(3,2)=c32/det
@@ -1050,6 +1050,7 @@ integer*4 :: j
 integer*4 :: inode
 integer*4 :: pnode
 integer*4 :: ngauss
+integer*4 :: taumodel = 1
 
 logical   :: inv_flag
 
@@ -1149,16 +1150,28 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
   end do
   
   sig_0 = sig_0 / vol
+ 
+  if (taumodel == 1) then
   
-  !tau = sqrt(Sig_0 * C_0^-1 * Sig_0)
-  aux = 0.0
-  do i=1,3
-     do j=1,3
-        aux = aux + Sig_0(i) * inv_C(i,j) * Sig_0(j)
-     end do   
-  end do  
-  tau(e) = sqrt(aux)
-
+     !tau = sqrt(Sig_0 * C_0^-1 * Sig_0)
+     aux = 0.0
+     do i=1,3
+        do j=1,3
+           aux = aux + Sig_0(i) * inv_C(i,j) * Sig_0(j)
+        end do   
+     end do
+     tau(e) = sqrt(aux)
+     
+  else if(taumodel == 2) then
+  
+     tau(e) = sqrt(sig_0(1)**2/young(e))
+  
+  else if(taumodel == 3) then
+    
+     tau(e) = sqrt((sig_0(1)+sig_0(2))/2/young(e))
+     
+  end if 
+  
   r = max(r_0(e),tau_history(e),tau(e))
   damage(e) =  1-r_0(e)/r * exp(A_damage(e)*(1-r/r_0(e)));
 

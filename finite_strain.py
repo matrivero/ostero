@@ -95,6 +95,7 @@ if f_vs_d_flag == 'ON':
 	try:
 	    physical_f_vs_d = physical_f_vs_d.replace('"','')
 	    f = open('f_vs_d_'+physical_f_vs_d+'.dat','w')
+	    f.close()
 	except NameError:
 	    print "You must give the name of the Physical Entity where you want to calculate the curve f vs d... bye!"
 	    sys.exit()
@@ -333,17 +334,19 @@ dt = float(time_step_size)
 dt2 = float(time_step_size)*float(time_step_size)
 strain = np.zeros((3,num_nodes))
 stress = np.zeros((3,num_nodes))
+force  = np.zeros((num_nodes*2))
+k_tot_aux  = np.zeros((num_nodes*2,num_nodes*2))
 
 #this variables should be calculated at each integration point but because they depend on the stresses but these are uniform in the interior of each element because we are using linear shape funtions 
 tau         = np.zeros((num_elements_bulk))
 tau_history = np.zeros((num_elements_bulk))
-r_0_initial = 500000.0/5
+r_0_initial = 10000.0 # TODO:que lea del input
 r_0         = r_0_initial*np.ones((num_elements_bulk))
-A_0_initial = 0.01
+A_0_initial = 0.001 # TODO:que lea del input
 A_damage    = A_0_initial*np.ones((num_elements_bulk))
 damage      = np.zeros((num_elements_bulk))
 
-writeout.writeoutput(header_output,-1,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress,damage,tau,tau_history)
+writeout.writeoutput(header_output,-1,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress,damage,tau,tau_history,force)
 
 external.mod_fortran.num_nodes = num_nodes
 external.mod_fortran.num_elements_bulk = num_elements_bulk
@@ -360,7 +363,7 @@ external.mod_fortran.density = density
 
 external.mod_fortran.damage      = damage
 external.mod_fortran.r_0         = r_0
-external.mod_fortran.A_damage    = A_damage
+external.mod_fortran.a_damage    = A_damage
 external.mod_fortran.tau_history = tau_history
 
 #IMPOSE GRAVITY
@@ -391,7 +394,7 @@ for z in range(int(total_steps)):
 	print 'Solving time step',z+1,'...'
 	it_counter = 0
 	if geom_treatment == 'LINEAR':
-	    eps = 1.0 #tolerance for residue norm
+	    eps = 0.0001 #tolerance for residue norm
 	else: #if geom_treatment == 'NONLINEAR'
 	    eps = 0.0001 #tolerance for displacement norm
 	norm_generic = 100*eps
@@ -401,6 +404,7 @@ for z in range(int(total_steps)):
 		displ_mono = displ + dt*veloc + (dt2/2)*(1-2*beta_newmark)*accel 
 		displ = displ_mono
 		veloc_mono = veloc + (1-gamma_newmark)*dt*accel
+		
 
 	#IMPOSE DISPLACEMENTS 
 	for bc in boundary_condition_disp:
@@ -424,7 +428,7 @@ for z in range(int(total_steps)):
 					displ[(eg[5]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
 					if (physical_names[bc][0] == 1): #0D is a node, 1D element is a line with two nodes.
 						displ[(eg[6]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-       
+      
 	#START N-R ITERATIONS
 	while (norm_generic > eps):
 	        
@@ -590,17 +594,25 @@ for z in range(int(total_steps)):
 	strain = external.mod_fortran.strain
 	stress = external.mod_fortran.stress
 	
-	if f_vs_d_flag == 'ON':
-	    [un,ut,fn,ft] = utils.calc_force_and_disp(physical_f_vs_d,element_groups,physical_names,nodes,displ,stress)
+
+	if f_vs_d_flag == 'ON' and geom_treatment == 'LINEAR':
+	    external.mod_fortran.stress_calc_on = False
+	    external.mod_fortran.assembly_linear()
+	    k_tot = external.mod_fortran.k_tot
+	    force = np.zeros((num_nodes*2))
+	    for i in range(num_nodes*2):
+		for j in range(num_nodes*2):
+		    force[i] += k_tot[i][j] * displ[j]
+	    [un,ut,fn,ft] = utils.calc_force_and_disp(physical_f_vs_d,element_groups,physical_names,nodes,displ,stress,force)
+	    f = open('f_vs_d_'+physical_f_vs_d+'.dat','a')
 	    f.write(str(un)+" "+str(ut)+" "+str(fn)+" "+str(ft))
 	    f.write("\n")
+	    f.close()
 	
 	external.mod_fortran.dealloca_global_matrices()
-	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress,damage,tau,tau_history)
+	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress,damage,tau,tau_history,force)
 	external.mod_fortran.dealloca_stress_strain_matrices()
 
 external.mod_fortran.dealloca_init()
-if f_vs_d_flag == 'ON':
-	    f.close()
 
 print "\nEXECUTION FINISHED SUCCESSFULLY!\n"
