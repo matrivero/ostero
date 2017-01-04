@@ -603,7 +603,7 @@ for z in range(int(total_steps)):
 	    for i in range(num_nodes*2):
 		for j in range(num_nodes*2):
 		    force[i] += k_tot[i][j] * displ[j]
-	    [un,ut,fn,ft] = utils.calc_force_and_disp(physical_f_vs_d,element_groups,physical_names,nodes,displ,stress,force)
+	    [un,ut,fn,ft] = utils.calc_force_and_disp(physical_f_vs_d,element_groups,physical_names,nodes,displ,force)
 	    f = open('f_vs_d_'+physical_f_vs_d+'.dat','a')
 	    f.write(str(un)+" "+str(ut)+" "+str(fn)+" "+str(ft))
 	    f.write("\n")
