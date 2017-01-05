@@ -4,11 +4,13 @@
 import sys
 import numpy as np
     
-def calc_force_and_disp(physical_entity_name,element_groups,physical_names,nodes,displ,stress):
-        fn = 0
-        ft = 0
+def calc_force_and_disp(physical_entity_name,element_groups,physical_names,nodes,displ,force):
+
+        force_elem = [0,0]
+        force_aver_normal  = 0
+        force_aver_tangent = 0
         u_averange = [0,0]
-        s_averange = [[0,0],[0,0]]
+
         length_tot = 0
 	for eg in element_groups[physical_names[physical_entity_name][1]]:
 	    tangent = [ nodes[eg[6]-1][1] - nodes[eg[5]-1][1] , nodes[eg[6]-1][2] - nodes[eg[5]-1][2] ]
@@ -18,8 +20,9 @@ def calc_force_and_disp(physical_entity_name,element_groups,physical_names,nodes
 	    normal =  [ tangent[1], -tangent[0] ]
 	    u_averange[0] += (displ[(eg[5]-1)*2+0] + displ[(eg[6]-1)*2+0] )/2 * length
 	    u_averange[1] += (displ[(eg[5]-1)*2+1] + displ[(eg[6]-1)*2+1] )/2 * length
-	    s_averange += [[(stress[0][(eg[5]-1)*2] + stress[0][(eg[6]-1)*2])/2 , (stress[2][(eg[5]-1)*2] + stress[2][(eg[6]-1)*2])/2], [(stress[2][(eg[5]-1)*2] + stress[2][(eg[6]-1)*2])/2 , (stress[1][(eg[5]-1)*2] + stress[1][(eg[6]-1)*2])/2]]
-	    fn += np.linalg.norm(np.dot(s_averange,normal)) * length
-	    ft += np.linalg.norm(np.dot(s_averange,tangent)) * length
-	    
-	return [np.dot(u_averange,normal)/length_tot, np.dot(u_averange,tangent)/length_tot, fn/length_tot , ft/length_tot ]
+	    force_elem[0] = ( force[(eg[5]-1)*2+0] + force[(eg[6]-1)*2+0] ) /2
+	    force_elem[1] = ( force[(eg[5]-1)*2+1] + force[(eg[6]-1)*2+1] ) /2
+	    force_aver_normal   += np.dot(force_elem,normal) * length
+	    force_aver_tangent  += np.dot(force_elem,tangent)* length
+	        
+	return [np.dot(u_averange,normal)/length_tot, np.dot(u_averange,tangent)/length_tot, force_aver_normal/length_tot, force_aver_tangent/length_tot ]
