@@ -181,7 +181,7 @@ elif geom_treatment == 'LINEAR':
 	except NameError:
 		model = 'DUMMY' #add something in order to define the variable.
 
-	try:
+	try:                                                       
 		submodel
 	except NameError:
 		print "Select a valid submodel for LINEAR geometrical treatment: PLANE_STRESS or PLANE_STRAIN... bye!"
@@ -200,19 +200,25 @@ elif geom_treatment == 'LINEAR':
 		print "DAMAGE ACTIVATED :", damage_flag
 
 #CHECK IF IS A 2D or 3D CASE
-accum_x = 0.0
-accum_y = 0.0
-accum_z = 0.0
-for node in range(num_nodes):
-	accum_x = accum_x + nodes[node][1]
-	accum_y = accum_y + nodes[node][2]
-	accum_z = accum_z + nodes[node][3]
-if ((accum_x == 0.0) or (accum_y == 0.0) or (accum_z == 0.0)):
-	ndime = 2
-else:
-	ndime = 3
-	print "3D cases: available soon"
-	sys.exit()
+flag = 0
+for node in range(num_nodes-1):
+     for d in range(3):
+	 if ((nodes[node+1][d+1]-nodes[node][d+1]) > 0.01):
+	    flag = flag | (1<<d)
+
+if ((flag == 1) or (flag == 2) or (flag == 4)):
+        ndime    = 1
+        numvoigt = 1
+        print "1D cases: available soon"
+        sys.exit()
+elif ((flag == 3) or (flag == 5) or (flag == 6)):
+	ndime    = 2
+	numvoigt = 3
+elif flag == 7:
+	ndime    = 3
+        numvoigt = 6
+        
+print 'DIMENSION :  ' + str(ndime)
 
 #READ BOUNDARY FILE
 volume_conditions = defaultdict(list)
@@ -249,38 +255,49 @@ for line in boundary_file:
 			volume_conditions[name].append(eval(density))
 		elif readmode == 2: #DISPLACEMENT BOUNDARY DEFINITIONS
 			if line.startswith('#') or line.startswith('!'): continue
-			(name, fix_x, fix_y, dx, dy, start, end) = line.split()
-			name = name.replace('"','')
-			boundary_condition_disp[name].append(bool(eval(fix_x)))
-			boundary_condition_disp[name].append(bool(eval(fix_y)))
-			boundary_condition_disp[name].append(eval(dx))
-			boundary_condition_disp[name].append(eval(dy))
-			boundary_condition_disp[name].append(eval(start))
-			boundary_condition_disp[name].append(eval(end))
+		        if ndime == 2:
+				(name, fix_x, fix_y, dx, dy, start, end) = line.split()
+				name = name.replace('"','')
+				boundary_condition_disp[name].append(bool(eval(fix_x)))
+				boundary_condition_disp[name].append(bool(eval(fix_y)))
+				boundary_condition_disp[name].append(eval(dx))
+				boundary_condition_disp[name].append(eval(dy))
+				boundary_condition_disp[name].append(eval(start))
+				boundary_condition_disp[name].append(eval(end))
+			elif ndime == 3:
+				(name, fix_x, fix_y, fix_z, dx, dy, dz, start, end) = line.split()
+				name = name.replace('"','')
+				boundary_condition_disp[name].append(bool(eval(fix_x)))
+				boundary_condition_disp[name].append(bool(eval(fix_y)))
+				boundary_condition_disp[name].append(eval(dx))
+				boundary_condition_disp[name].append(eval(dy))
+				boundary_condition_disp[name].append(eval(start))
+				boundary_condition_disp[name].append(eval(end))
 		elif readmode == 3: #PRESSURE BOUNDARY DEFINITIONS
 			if line.startswith('#') or line.startswith('!'): continue
 			(name, pressure) = line.split()
 			name = name.replace('"','')
 			boundary_condition_press[name].append(eval(pressure))
 			# LINK BETWEEN BOUNDARY ELEMENTS AND VOLUME ELEMENTS FOR 2D MESHES (2D to 1D)
-			for eg in element_groups[physical_names[name][1]]: #forall pressure boundary elements 
-				for vo in volume_conditions: #forall volume domains
-					for eg2 in element_groups[physical_names[vo][1]]: #forall volume elements
-						if eg2[1] == 2: #TRIANGLE ELEMENT
-							if ((eg[5] == eg2[5]) or (eg[5] == eg2[6]) or (eg[5] == eg2[7])) and \
-								((eg[6] == eg2[5]) or (eg[6] == eg2[6]) or (eg[6] == eg2[7])):
-								link_boundary_volume_elem[name].append(int(eg2[0]))
-						elif eg2[1] == 3: #QUAD ELEMENT
-							if ((eg[5] == eg2[5]) or (eg[5] == eg2[6]) or (eg[5] == eg2[7]) or (eg[5] == eg2[8])) and \
-								((eg[6] == eg2[5]) or (eg[6] == eg2[6]) or (eg[6] == eg2[7]) or (eg[6] == eg2[8])):
-								link_boundary_volume_elem[name].append(int(eg2[0]))
+			if ndime == 2: # Ahora se lo dejo para 2d a las newmann distintas de 0 TODO: para 3D y 1D
+				for eg in element_groups[physical_names[name][1]]: #forall pressure boundary elements 
+					for vo in volume_conditions: #forall volume domains
+						for eg2 in element_groups[physical_names[vo][1]]: #forall volume elements
+							if eg2[1] == 2: #TRIANGLE ELEMENT
+								if ((eg[5] == eg2[5]) or (eg[5] == eg2[6]) or (eg[5] == eg2[7])) and \
+									((eg[6] == eg2[5]) or (eg[6] == eg2[6]) or (eg[6] == eg2[7])):
+									link_boundary_volume_elem[name].append(int(eg2[0]))
+							elif eg2[1] == 3: #QUAD ELEMENT
+								if ((eg[5] == eg2[5]) or (eg[5] == eg2[6]) or (eg[5] == eg2[7]) or (eg[5] == eg2[8])) and \
+									((eg[6] == eg2[5]) or (eg[6] == eg2[6]) or (eg[6] == eg2[7]) or (eg[6] == eg2[8])):
+									link_boundary_volume_elem[name].append(int(eg2[0]))
 		elif readmode == 4: #GRAVITY DEFINITION
 			if line.startswith('#') or line.startswith('!'): continue
 			gravity_present = True
 			(grav_magnitude, direction_x, direction_y) = line.split()
 			n_x = eval(direction_x)/np.sqrt(eval(direction_x)*eval(direction_x) + eval(direction_y)*eval(direction_y))
 			n_y = eval(direction_y)/np.sqrt(eval(direction_x)*eval(direction_x) + eval(direction_y)*eval(direction_y))
-			grav_direction = np.zeros((2))
+			grav_direction = np.zeros((ndime))
 			grav_direction[0] = n_x
 			grav_direction[1] = n_y
 		elif readmode == 5: #NEWMARK - BETA AND GAMMA VALUES
@@ -302,7 +319,7 @@ for vo in volume_conditions:
 	for eg in element_groups[physical_names[vo][1]]:
 		elements_bulk.append(eg)	
 elements_bulk = np.array(elements_bulk)
-young = np.zeros((num_elements_bulk)) 
+young   = np.zeros((num_elements_bulk)) 
 poisson = np.zeros((num_elements_bulk))
 density = np.zeros((num_elements_bulk))
 ielem = 0
@@ -313,29 +330,39 @@ for vo in volume_conditions:
 		density[ielem] = volume_conditions[vo][2]
 		ielem += 1
 
-weight_bounda = np.zeros((2))
-weight_bounda[0] = 1.0
-weight_bounda[1] = 1.0
-#shape1_bound = 0.5*(1-s)
-#shape2_bound = 0.5*(1+s)
-shape_bound = np.zeros((2,2))
-shape_bound[0][0] = 0.788675 #node 1, gauss point 1 
-shape_bound[1][0] = 0.211324 #node 2, gauss point 1
-shape_bound[0][1] = 0.211324 #node 1, gauss point 2
-shape_bound[1][1] = 0.788675 #node 2, gauss point 2
-deriv_bound = np.zeros((2))
-deriv_bound[0] = -0.5
-deriv_bound[1] = 0.5
+nvert    = { 'POINT': 1, 'SEGMENT': 2, 'TRIANGLE': 3, 'QUADRANGLE': 4, 'TETRAHEDRON': 4, 'HEXAHEDRON': 8 }
+gmshkind = { 15:'POINT', 1:'SEGMENT', 2:'TRIANGLE', 3:'QUADRANGLE', 4:'TETRAHEDRON', 5:'HEXAHEDRON'}
+# The following values are used to set the Neumann bc TODO: the same for 3D (in 1D integration is not needed)
+if ndime == 2:
+	weight_bounda = np.zeros((2))
+	weight_bounda[0] = 1.0
+	weight_bounda[1] = 1.0
+	#shape1_bound = 0.5*(1-s)
+	#shape2_bound = 0.5*(1+s)
+	shape_bound = np.zeros((2,2))
+	shape_bound[0][0] = 0.788675 #node 1, gauss point 1 
+	shape_bound[1][0] = 0.211324 #node 2, gauss point 1
+	shape_bound[0][1] = 0.211324 #node 1, gauss point 2
+	shape_bound[1][1] = 0.788675 #node 2, gauss point 2
+	deriv_bound = np.zeros((2))
+	deriv_bound[0] = -0.5
+	deriv_bound[1] = 0.5
+#elif ndime == 3:
+	##TODO
 
-displ = np.zeros((num_nodes*2))
-veloc = np.zeros((num_nodes*2)) #---> initial condition for velocity = 0
-accel = np.zeros((num_nodes*2)) #---> only initializing the acceleration array
+
+
+    
+displ = np.zeros((num_nodes*ndime))
+veloc = np.zeros((num_nodes*ndime)) #---> initial condition for velocity = 0
+accel = np.zeros((num_nodes*ndime)) #---> only initializing the acceleration array
 dt = float(time_step_size)
 dt2 = float(time_step_size)*float(time_step_size)
-strain = np.zeros((3,num_nodes))
-stress = np.zeros((3,num_nodes))
-force  = np.zeros((num_nodes*2))
-k_tot_aux  = np.zeros((num_nodes*2,num_nodes*2))
+
+strain = np.zeros((numvoigt,num_nodes))
+stress = np.zeros((numvoigt,num_nodes))
+force  = np.zeros((num_nodes*ndime))
+k_tot_aux  = np.zeros((num_nodes*ndime,num_nodes*ndime))
 
 #this variables should be calculated at each integration point but because they depend on the stresses but these are uniform in the interior of each element because we are using linear shape funtions 
 tau         = np.zeros((num_elements_bulk))
@@ -346,7 +373,7 @@ A_0_initial = 0.001 # TODO:que lea del input
 A_damage    = A_0_initial*np.ones((num_elements_bulk))
 damage      = np.zeros((num_elements_bulk))
 
-writeout.writeoutput(header_output,-1,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress,damage,tau,tau_history,force)
+writeout.writeoutput(header_output,-1,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress,damage,tau,tau_history,force,ndime)
 
 external.mod_fortran.num_nodes = num_nodes
 external.mod_fortran.num_elements_bulk = num_elements_bulk
@@ -406,28 +433,43 @@ for z in range(int(total_steps)):
 		veloc_mono = veloc + (1-gamma_newmark)*dt*accel
 		
 
-	#IMPOSE DISPLACEMENTS 
+	#IMPOSE DISPLACEMENTS
 	for bc in boundary_condition_disp:
-		for eg in element_groups[physical_names[bc][1]]:
-			for ii in range(len(boundary_condition_disp[bc])/6):
-				if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
-					diff_tstep = boundary_condition_disp[bc][6*ii+5] - boundary_condition_disp[bc][6*ii+4] + 1
-					if (ii == 0):
-						bcx_ant = 0.0
-						bcy_ant = 0.0
-						step_ant = 0
-					else:
-						bcx_ant = boundary_condition_disp[bc][6*(ii-1)+2]
-						bcy_ant = boundary_condition_disp[bc][6*(ii-1)+3]
-						step_ant = boundary_condition_disp[bc][6*(ii-1)+5]
-					#X COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
-					displ[(eg[5]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-					if (physical_names[bc][0] == 1): #0D is a node, 1D element is a line with two nodes. 
-						displ[(eg[6]-1)*2] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
-					#Y COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
-					displ[(eg[5]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
-					if (physical_names[bc][0] == 1): #0D is a node, 1D element is a line with two nodes.
-						displ[(eg[6]-1)*2+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+		for eg in element_groups[physical_names[bc][1]]:     
+			if ndime == 2: #A esta la dejo tal como esta y a la 3d la dejo como si fuese general a ver si gusta
+				for ii in range(len(boundary_condition_disp[bc])/6):
+					if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
+						diff_tstep = boundary_condition_disp[bc][6*ii+5] - boundary_condition_disp[bc][6*ii+4] + 1
+						if (ii == 0):
+							bcx_ant = 0.0
+							bcy_ant = 0.0
+							step_ant = 0
+						else:
+							bcx_ant = boundary_condition_disp[bc][6*(ii-1)+2]
+							bcy_ant = boundary_condition_disp[bc][6*(ii-1)+3]
+							step_ant = boundary_condition_disp[bc][6*(ii-1)+5]
+						#X COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
+						displ[(eg[5]-1)*ndime] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+						if (physical_names[bc][0] == 1): #0D is a node, 1D element is a line with two nodes. 
+							displ[(eg[6]-1)*ndime] = (((boundary_condition_disp[bc][6*ii+2]-bcx_ant)/int(diff_tstep))*(z+1-step_ant)+bcx_ant)
+						#Y COORD OF FIRST AND SECOND NODE (1D SURFACE ELEMENT)
+						displ[(eg[5]-1)*ndime+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+						if (physical_names[bc][0] == 1): #0D is a node, 1D element is a line with two nodes.
+							displ[(eg[6]-1)*ndime+1] = (((boundary_condition_disp[bc][6*ii+3]-bcy_ant)/int(diff_tstep))*(z+1-step_ant)+bcy_ant)
+			if ndime == 3:
+				for ii in range(len(boundary_condition_disp[bc])/(ndime*2+2)):
+					if (boundary_condition_disp[bc][(ndime*2+2)*ii+2*ndime] <= (z+1) <= boundary_condition_disp[bc][(ndime*2+2)*ii+2*ndime+1]):
+						diff_tstep = boundary_condition_disp[bc][(ndime*2+2)*ii+2*ndime+1] - boundary_condition_disp[bc][(ndime*2+2)*ii+2*ndime] + 1
+						if (ii == 0):
+							bc_ant = np.zeros((ndime))
+							step_ant = 0
+						else:   
+						        for d in range(ndime):
+								bc_ant[d] = boundary_condition_disp[bc][(ndime*2+2)*(ii-1)+ndime+d]
+								step_ant  = boundary_condition_disp[bc][(ndime*2+2)*(ii-1)+2*ndime+1]
+						for n in range(nvert[gmshkind[eg[1]]]):
+							for d in range(ndime):
+								displ[(eg[5+n]-1)*ndime+d] = (((boundary_condition_disp[bc][(ndime*2+2)*ii+ndime+d]-bc_ant[d])/int(diff_tstep))*(z+1-step_ant)+bc_ant[d])
       
 	#START N-R ITERATIONS
 	while (norm_generic > eps):
@@ -519,6 +561,7 @@ for z in range(int(total_steps)):
 				#(eg[5]-1)*2+1 component Y of the first node
 				#(eg[6]-1)*2 component X of the second node
 				#(eg[6]-1)*2+1 component Y of the second node
+				#(eg[4+nsime]-1)*ndime+d component "d" of the "nsime" node 
 				for ii in range(len(boundary_condition_disp[bc])/6):
 					if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
 						if (physical_names[bc][0] == 1): #1D boundary element (line)
@@ -610,7 +653,7 @@ for z in range(int(total_steps)):
 	    f.close()
 	
 	external.mod_fortran.dealloca_global_matrices()
-	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress,damage,tau,tau_history,force)
+	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress,damage,tau,tau_history,force,ndime)
 	external.mod_fortran.dealloca_stress_strain_matrices()
 
 external.mod_fortran.dealloca_init()
