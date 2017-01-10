@@ -555,7 +555,7 @@ for z in range(int(total_steps)):
 					dot_prod = (center_of_mass_x - coord_nodes[0][0])*normal_x + (center_of_mass_y - coord_nodes[0][1])*normal_y 
 					if dot_prod > 0:
 						normal_x = -normal_x
-						normal_y = -normal_yk_tot_aux  = np.zeros((num_nodes*ndime,num_nodes*ndime))
+						normal_y = -normal_y	
 						tangent_x = -tangent_x
 						tangent_y = -tangent_y
 					cont += 1
