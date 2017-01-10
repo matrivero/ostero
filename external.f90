@@ -18,6 +18,7 @@
 module mod_fortran
 
 !inputs deriv_and_detjac_calc
+integer*4 :: ndime
 integer*4 :: num_elements_bulk
 real*8, allocatable, dimension(:,:) :: nodes
 integer*4, allocatable, dimension(:,:) :: elements_bulk
@@ -26,6 +27,11 @@ integer*4, allocatable, dimension(:,:) :: elements_bulk
 integer*4 :: num_nodes
 real*8, allocatable, dimension(:,:,:) :: pgauss
 real*8, allocatable, dimension(:,:) :: weight
+
+real*8, allocatable, dimension(:,:) :: pgauss_hexa8
+real*8, allocatable, dimension(:)   :: weight_hexa8
+real*8, allocatable, dimension(:,:) :: pgauss_prism6
+real*8, allocatable, dimension(:)   :: weight_prism6
 
 !inputs assembly
 real*8, allocatable, dimension(:) :: displ
@@ -43,6 +49,8 @@ real*8, allocatable, dimension(:) :: tau_history
 real*8, allocatable, dimension(:) :: a_damage
 
 !outputs deriv_and_detjac_calc
+real*8, allocatable, dimension(:,:) :: jac
+real*8, allocatable, dimension(:,:) :: inv_jac
 real*8, allocatable, dimension(:,:) :: det_jac
 real*8, allocatable, dimension(:,:,:,:) :: deriv
 
@@ -55,9 +63,12 @@ real*8, allocatable, dimension(:,:) :: m_tot
 real*8, allocatable, dimension(:) :: r_tot
 real*8, allocatable, dimension(:,:) :: strain
 real*8, allocatable, dimension(:,:) :: stress
+integer*4 :: voight_number
 
 character(len=4) :: model
 character(len=12) :: submodel
+real*8, dimension(6,24) :: b_test
+real*8, dimension(24,24) :: k_elem_test
 
 contains
 
@@ -65,7 +76,7 @@ contains
 
 subroutine init()
 
-allocate(weight(4,2))
+allocate(weight(8,6))
 weight = 0.0D0
 weight(1,1) = 0.166666666666666D0
 weight(2,1) = 0.166666666666666D0
@@ -75,6 +86,22 @@ weight(1,2) = 1.0D0
 weight(2,2) = 1.0D0
 weight(3,2) = 1.0D0
 weight(4,2) = 1.0D0
+
+weight(1,6) = 1.0D0
+weight(2,6) = 1.0D0
+weight(3,6) = 1.0D0
+weight(4,6) = 1.0D0
+weight(5,6) = 1.0D0
+weight(6,6) = 1.0D0
+weight(7,6) = 1.0D0
+weight(8,6) = 1.0D0
+
+weight(1,4) = 0.166666666666666D0
+weight(2,4) = 0.166666666666666D0
+weight(3,4) = 0.166666666666666D0
+weight(4,4) = 0.166666666666666D0
+weight(5,4) = 0.166666666666666D0
+weight(6,4) = 0.166666666666666D0
 
 allocate(pgauss(4,2,2))
 pgauss = 0.0D0
@@ -92,7 +119,65 @@ pgauss(2,2,2) = -0.577350269189626D0
 pgauss(3,1,2) = 0.577350269189626D0 
 pgauss(3,2,2) = 0.577350269189626D0 
 pgauss(4,1,2) = -0.577350269189626D0 
-pgauss(4,2,2) = 0.577350269189626D0 
+pgauss(4,2,2) = 0.577350269189626D0
+
+allocate(pgauss_hexa8(8,3))
+pgauss_hexa8(1,1) = -0.577350269189626D0
+pgauss_hexa8(1,2) = -0.577350269189626D0
+pgauss_hexa8(1,3) = -0.577350269189626D0
+
+pgauss_hexa8(2,1) = +0.577350269189626D0
+pgauss_hexa8(2,2) = -0.577350269189626D0
+pgauss_hexa8(2,3) = -0.577350269189626D0
+
+pgauss_hexa8(3,1) = +0.577350269189626D0
+pgauss_hexa8(3,2) = +0.577350269189626D0
+pgauss_hexa8(3,3) = -0.577350269189626D0
+
+pgauss_hexa8(4,1) = -0.577350269189626D0
+pgauss_hexa8(4,2) = +0.577350269189626D0
+pgauss_hexa8(4,3) = -0.577350269189626D0
+             
+pgauss_hexa8(5,1) = -0.577350269189626D0
+pgauss_hexa8(5,2) = -0.577350269189626D0
+pgauss_hexa8(5,3) = +0.577350269189626D0
+
+pgauss_hexa8(6,1) = +0.577350269189626D0
+pgauss_hexa8(6,2) = -0.577350269189626D0
+pgauss_hexa8(6,3) = +0.577350269189626D0
+
+pgauss_hexa8(7,1) = +0.577350269189626D0
+pgauss_hexa8(7,2) = +0.577350269189626D0
+pgauss_hexa8(7,3) = +0.577350269189626D0
+
+pgauss_hexa8(8,1) = -0.577350269189626D0
+pgauss_hexa8(8,2) = +0.577350269189626D0
+pgauss_hexa8(8,3) = +0.577350269189626D0
+
+allocate(pgauss_prism6(6,3))
+pgauss_prism6(1,1) = +0.166666666666666D0
+pgauss_prism6(1,2) = +0.166666666666666D0
+pgauss_prism6(1,3) = -0.577350269189626D0
+
+pgauss_prism6(2,1) = +0.66666666666666D0
+pgauss_prism6(2,2) = +0.166666666666666D0
+pgauss_prism6(2,3) = -0.577350269189626D0
+
+pgauss_prism6(3,1) = +0.166666666666666D0
+pgauss_prism6(3,2) = +0.66666666666666D0
+pgauss_prism6(3,3) = -0.577350269189626D0
+
+pgauss_prism6(4,1) = +0.166666666666666D0
+pgauss_prism6(4,2) = +0.166666666666666D0
+pgauss_prism6(4,3) = +0.577350269189626D0
+
+pgauss_prism6(5,1) = +0.66666666666666D0
+pgauss_prism6(5,2) = +0.166666666666666D0
+pgauss_prism6(5,3) = -0.577350269189626D0
+
+pgauss_prism6(6,1) = +0.166666666666666D0
+pgauss_prism6(6,2) = +0.66666666666666D0
+pgauss_prism6(6,3) = -0.577350269189626D0
 
 allocate(young(num_elements_bulk))
 allocate(poisson(num_elements_bulk))
@@ -114,29 +199,95 @@ end subroutine init
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine derivs(pnode,igauss,dh)
-
+                                                      
 implicit none
 
 integer*4, intent(in) :: pnode,igauss
-real*8, dimension(4,2), intent(out) :: dh
+real*8, dimension(8,3), intent(out) :: dh
 
 dh = 0.0D0
-if (pnode == 3) then
-  dh(1,1) = -1D0 !dh1/deta
-  dh(1,2) = -1D0 !dh1/dxi
-  dh(2,1) = 1D0 !dh2/deta
-  dh(2,2) = 0D0 !dh2/dxi
-  dh(3,1) = 0D0 !dh3/deta
-  dh(3,2) = 1D0 !dh3/dxi
-else if(pnode == 4) then
-  dh(1,1) = -(1D0 - pgauss(igauss,2,2))/4.0D0 !dh1/eta
-  dh(1,2) = -(1D0 - pgauss(igauss,1,2))/4.0D0 !dh1/xi
-  dh(2,1) = (1D0 - pgauss(igauss,2,2))/4.0D0  !dh2/eta
-  dh(2,2) = -(1D0 + pgauss(igauss,1,2))/4.0D0  !dh2/xi
-  dh(3,1) = (1D0 + pgauss(igauss,2,2))/4.0D0  !dh3/eta
-  dh(3,2) = (1D0 + pgauss(igauss,1,2))/4.0D0  !dh3/xi
-  dh(4,1) = -(1D0 + pgauss(igauss,2,2))/4.0D0  !dh4/deta
-  dh(4,2) = (1D0 - pgauss(igauss,1,2))/4.0D0 !dh4/dxi
+if (ndime == 2) then
+   if (pnode == 3) then
+     dh(1,1) = -1D0 !dh1/deta
+     dh(1,2) = -1D0 !dh1/dxi
+     dh(2,1) = 1D0 !dh2/deta
+     dh(2,2) = 0D0 !dh2/dxi
+     dh(3,1) = 0D0 !dh3/deta
+     dh(3,2) = 1D0 !dh3/dxi
+   else if(pnode == 4) then
+     dh(1,1) = -(1D0 - pgauss(igauss,2,2))/4.0D0 !dh1/eta
+     dh(1,2) = -(1D0 - pgauss(igauss,1,2))/4.0D0 !dh1/xi
+     dh(2,1) = (1D0 - pgauss(igauss,2,2))/4.0D0  !dh2/eta
+     dh(2,2) = -(1D0 + pgauss(igauss,1,2))/4.0D0  !dh2/xi
+     dh(3,1) = (1D0 + pgauss(igauss,2,2))/4.0D0  !dh3/eta
+     dh(3,2) = (1D0 + pgauss(igauss,1,2))/4.0D0  !dh3/xi
+     dh(4,1) = -(1D0 + pgauss(igauss,2,2))/4.0D0  !dh4/deta
+     dh(4,2) = (1D0 - pgauss(igauss,1,2))/4.0D0 !dh4/dxi
+   end if
+
+else if(ndime == 3) then
+   
+   if (pnode == 8) then
+   
+     dh(1,1) = -(1D0 - pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(1,2) = -(1D0 - pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(1,3) = -(1D0 - pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))/8.0D0
+     
+     dh(2,1) = +(1D0 - pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(2,2) = -(1D0 + pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(2,3) = -(1D0 + pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))/8.0D0
+     
+     dh(3,1) = +(1D0 + pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(3,2) = +(1D0 + pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(3,3) = -(1D0 + pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))/8.0D0
+     
+     dh(4,1) = -(1D0 + pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(4,2) = +(1D0 - pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(4,3) = -(1D0 - pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))/8.0D0
+     
+     dh(5,1) = -(1D0 - pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(5,2) = -(1D0 - pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(5,3) = +(1D0 - pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))/8.0D0
+     
+     dh(6,1) = +(1D0 - pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(6,2) = -(1D0 + pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(6,3) = +(1D0 + pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))/8.0D0
+     
+     dh(7,1) = +(1D0 + pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(7,2) = +(1D0 + pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(7,3) = +(1D0 + pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))/8.0D0
+     
+     dh(8,1) = -(1D0 + pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(8,2) = +(1D0 - pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(8,3) = +(1D0 - pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))/8.0D0
+      
+   else if(pnode == 6) then
+   
+     dh(1,1) = -(1D0)*(1D0 - pgauss_prism6(igauss,3))/2.0D0
+     dh(1,2) = -(1D0)*(1D0 - pgauss_prism6(igauss,3))/2.0D0   
+     dh(1,3) = -(1D0 - pgauss_prism6(igauss,1) - pgauss_prism6(igauss,2))/2.0D0   
+        
+     dh(2,1) = +(1D0)*(1D0 - pgauss_prism6(igauss,3))/2.0D0 
+     dh(2,2) = -(0D0)*(1D0 - pgauss_prism6(igauss,3))/2.0D0    
+     dh(2,3) = -( + pgauss_prism6(igauss,1) )/2.0D0  
+        
+     dh(3,1) = -(0D0)*(1D0 - pgauss_prism6(igauss,3))/2.0D0   
+     dh(3,2) = -(1D0)*(1D0 - pgauss_prism6(igauss,3))/2.0D0      
+     dh(3,3) = -( + pgauss_prism6(igauss,2) )/2.0D0    
+        
+     dh(4,1) = -(1D0)*(1D0 + pgauss_prism6(igauss,3))/2.0D0
+     dh(4,2) = -(1D0)*(1D0 + pgauss_prism6(igauss,3))/2.0D0   
+     dh(4,3) = +(1D0 - pgauss_prism6(igauss,1) - pgauss_prism6(igauss,2))/2.0D0   
+        
+     dh(5,1) = +(1D0)*(1D0 + pgauss_prism6(igauss,3))/2.0D0 
+     dh(5,2) = -(0D0)*(1D0 + pgauss_prism6(igauss,3))/2.0D0    
+     dh(5,3) = +( + pgauss_prism6(igauss,1) )/2.0D0  
+     
+     dh(6,1) = -(0D0)*(1D0 + pgauss_prism6(igauss,3))/2.0D0   
+     dh(6,2) = -(1D0)*(1D0 + pgauss_prism6(igauss,3))/2.0D0      
+     dh(6,3) = +( + pgauss_prism6(igauss,2) )/2.0D0    
+
+   end if
 end if
 
 end subroutine derivs
@@ -148,18 +299,47 @@ subroutine shapefunc(pnode,igauss,gpsha)
 implicit none
 
 integer*4, intent(in) :: pnode,igauss
-real*8, dimension(4), intent(out) :: gpsha
+real*8, dimension(8), intent(out) :: gpsha
 
 gpsha = 0.0D0
-if (pnode == 3) then
-    gpsha(1) = 1D0 - pgauss(igauss,1,pnode-2) - pgauss(igauss,2,pnode-2) !1-eta-xi 
-    gpsha(2) = pgauss(igauss,1,pnode-2) !eta
-    gpsha(3) = pgauss(igauss,2,pnode-2) !xi
-else if(pnode == 4) then
-    gpsha(1) = (1D0 - pgauss(igauss,1,pnode-2))*(1D0 - pgauss(igauss,2,pnode-2))/4.0D0
-    gpsha(2) = (1D0 + pgauss(igauss,1,pnode-2))*(1D0 - pgauss(igauss,2,pnode-2))/4.0D0
-    gpsha(3) = (1D0 + pgauss(igauss,1,pnode-2))*(1D0 + pgauss(igauss,2,pnode-2))/4.0D0
-    gpsha(4) = (1D0 - pgauss(igauss,1,pnode-2))*(1D0 + pgauss(igauss,2,pnode-2))/4.0D0
+
+if (ndime == 2) then
+
+  if (pnode == 3) then
+      gpsha(1) = 1D0 - pgauss(igauss,1,pnode-2) - pgauss(igauss,2,pnode-2) !1-eta-xi 
+      gpsha(2) = pgauss(igauss,1,pnode-2) !eta
+      gpsha(3) = pgauss(igauss,2,pnode-2) !xi
+  else if(pnode == 4) then
+      gpsha(1) = (1D0 - pgauss(igauss,1,pnode-2))*(1D0 - pgauss(igauss,2,pnode-2))/4.0D0
+      gpsha(2) = (1D0 + pgauss(igauss,1,pnode-2))*(1D0 - pgauss(igauss,2,pnode-2))/4.0D0
+      gpsha(3) = (1D0 + pgauss(igauss,1,pnode-2))*(1D0 + pgauss(igauss,2,pnode-2))/4.0D0
+      gpsha(4) = (1D0 - pgauss(igauss,1,pnode-2))*(1D0 + pgauss(igauss,2,pnode-2))/4.0D0
+  end if
+  
+else if (ndime == 3) then
+
+  if (pnode == 8) then
+      
+      gpsha(1) = (1D0 - pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
+      gpsha(2) = (1D0 + pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
+      gpsha(3) = (1D0 + pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
+      gpsha(4) = (1D0 - pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
+      gpsha(5) = (1D0 - pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
+      gpsha(6) = (1D0 + pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
+      gpsha(7) = (1D0 + pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
+      gpsha(8) = (1D0 - pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
+      
+  else if(pnode == 6) then
+      
+      gpsha(1) = (1D0 - pgauss_prism6(igauss,1) - pgauss_prism6(igauss,2))*(1D0 - pgauss_prism6(igauss,3))/2.0D0
+      gpsha(2) = ( + pgauss_prism6(igauss,1) )                            *(1D0 - pgauss_prism6(igauss,3))/2.0D0
+      gpsha(3) = ( + pgauss_prism6(igauss,2) )                            *(1D0 - pgauss_prism6(igauss,3))/2.0D0
+      gpsha(4) = (1D0 - pgauss_prism6(igauss,1) - pgauss_prism6(igauss,2))*(1D0 + pgauss_prism6(igauss,3))/2.0D0
+      gpsha(5) = ( + pgauss_prism6(igauss,1) )                            *(1D0 + pgauss_prism6(igauss,3))/2.0D0
+      gpsha(6) = ( + pgauss_prism6(igauss,2) )                            *(1D0 + pgauss_prism6(igauss,3))/2.0D0
+            
+  end if
+  
 end if
 
 end subroutine shapefunc
@@ -170,59 +350,88 @@ subroutine deriv_and_detjac_calc()
 
 implicit none
 
-real*8, dimension(4,2) :: coord_nodes
-real*8, dimension(2,2) :: inv_jac
-real*8, dimension(2,2) :: jac
-real*8, dimension(4,2) :: dh
+real*8, dimension(8,3) :: coord_nodes
+! real*8, dimension(2,2) :: inv_jac
+! real*8, dimension(2,2) :: jac
+real*8, dimension(8,3) :: dh
 real*8 :: det_jac_tmp
-integer*4 :: e,i,j
+integer*4 :: e,i,j,n,p
 integer*4 :: pnode,ngauss
 logical :: inv_flag
 
-allocate(det_jac(num_elements_bulk,4))
-allocate(deriv(4,2,num_elements_bulk,4))
+allocate(jac(ndime,ndime))
+allocate(inv_jac(ndime,ndime))
+allocate(det_jac(num_elements_bulk,8))
+allocate(deriv(8,ndime,num_elements_bulk,8))
+
+deriv = 0D0
 
 do e = 1,num_elements_bulk
+
   if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
-    pnode = 3
-    ngauss = 3
-    coord_nodes(1,1) = nodes(elements_bulk(e,6),2)
-    coord_nodes(1,2) = nodes(elements_bulk(e,6),3)
-    coord_nodes(2,1) = nodes(elements_bulk(e,7),2)
-    coord_nodes(2,2) = nodes(elements_bulk(e,7),3)
-    coord_nodes(3,1) = nodes(elements_bulk(e,8),2)
-    coord_nodes(3,2) = nodes(elements_bulk(e,8),3)
+      
+       pnode = 3
+       ngauss = 3
+
   else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
-    pnode = 4
-    ngauss = 4
-    coord_nodes(1,1) = nodes(elements_bulk(e,6),2)
-    coord_nodes(1,2) = nodes(elements_bulk(e,6),3)
-    coord_nodes(2,1) = nodes(elements_bulk(e,7),2)
-    coord_nodes(2,2) = nodes(elements_bulk(e,7),3)
-    coord_nodes(3,1) = nodes(elements_bulk(e,8),2)
-    coord_nodes(3,2) = nodes(elements_bulk(e,8),3)
-    coord_nodes(4,1) = nodes(elements_bulk(e,9),2)
-    coord_nodes(4,2) = nodes(elements_bulk(e,9),3)
-  end if
+       
+       pnode = 4
+       ngauss = 4
+    
+   else if (elements_bulk(e,2) == 5) then !8N-HEXA ELEMENT
+       
+       pnode  = 8
+       ngauss = 8
+       
+   else if (elements_bulk(e,2) == 6) then !6N-PRISM ELEMENT
+       
+       pnode  = 6
+       ngauss = 6
+         
+   end if
+   
+   do i = 1,pnode
+      do j = 1,ndime
+         coord_nodes(i,j) = nodes(elements_bulk(e,5+i),j+1)
+      end do 
+   end do
 
   do i = 1,ngauss !GAUSS POINT LOOP
     call derivs(pnode,i,dh)
     jac = 0.0D0
-    do j = 1,pnode
-      jac(1,1) = jac(1,1) + coord_nodes(j,1)*dh(j,1)
-      jac(1,2) = jac(1,2) + coord_nodes(j,2)*dh(j,1)
-      jac(2,1) = jac(2,1) + coord_nodes(j,1)*dh(j,2)
-      jac(2,2) = jac(2,2) + coord_nodes(j,2)*dh(j,2)
+    do p = 1, ndime
+       do j = 1, ndime
+          do n = 1,pnode
+         
+             jac(p,j) = jac(p,j) + coord_nodes(n,j)*dh(n,p)
+    
+         end do
+       end do 
     end do
-    call m22inv(jac, inv_jac, det_jac_tmp, inv_flag)
+
+    if (ndime == 2) then
+    
+       call m22inv(jac, inv_jac, det_jac_tmp, inv_flag)
+    
+    else if (ndime == 3) then
+    
+       call m33inv(jac, inv_jac, det_jac_tmp, inv_flag)
+    
+    end if   
+
     if (.not. inv_flag) then
       write(*,*) "Jacobian Matrix is not invertible... bye!"
       stop
     end if
     det_jac(e,i) = abs(det_jac_tmp)
     do j = 1,pnode
-      deriv(j,1,e,i) = dh(j,1)*inv_jac(1,1) + dh(j,2)*inv_jac(1,2)
-      deriv(j,2,e,i) = dh(j,1)*inv_jac(2,1) + dh(j,2)*inv_jac(2,2)
+      do p = 1,ndime
+        do n = 1,ndime
+           deriv(j,p,e,i) = deriv(j,p,e,i) + inv_jac(p,n)*dh(j,n)
+        end do
+      end do
+!       deriv(j,1,e,i) = dh(j,1)*inv_jac(1,1) + dh(j,2)*inv_jac(1,2)
+!       deriv(j,2,e,i) = dh(j,1)*inv_jac(2,1) + dh(j,2)*inv_jac(2,2)
     end do 
   end do
 end do
@@ -238,7 +447,7 @@ subroutine vmass_calc()
 implicit none
 
 integer*4 :: e,i,inode,ipoin,pnode,ngauss
-real*8, dimension(4) :: numer,gpsha
+real*8, dimension(8) :: numer,gpsha
 real*8 :: gpvol
 
 allocate(vmass(num_nodes))
@@ -246,12 +455,27 @@ vmass = 0.0D0
 
 do e = 1,num_elements_bulk
 
+
   if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
-    pnode = 3
-    ngauss = 3
+      
+       pnode = 3
+       ngauss = 3
+
   else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
-    pnode = 4
-    ngauss = 4
+       
+       pnode = 4
+       ngauss = 4
+    
+  else if (elements_bulk(e,2) == 5) then !8N-HEXA ELEMENT
+       
+       pnode  = 8
+       ngauss = 8
+       
+  else if (elements_bulk(e,2) == 6) then !6N-PRISM ELEMENT
+       
+       pnode  = 6
+       ngauss = 6
+         
   end if
 
   numer = 0
@@ -382,11 +606,11 @@ real*8, dimension(2,2) :: ST
 real*8 :: gpinv
 real*8 :: gpvol
 real*8 :: xmean
-real*8, dimension(4) :: gpsha
+real*8, dimension(8) :: gpsha
 integer*4 :: ipoin, ivoigt 
 integer*4, dimension(3,2) :: nvgij
 integer*4 :: pnode,ngauss 
-real*8 :: lame2_lambda,lame1_mu,plane
+real*8 :: lame2_lambda,lame1_mu,plane      
 
 if (.not. stress_calc_on) then
   allocate(k_tot(num_nodes*2,num_nodes*2))
@@ -782,34 +1006,34 @@ subroutine assembly_linear()
 
 implicit none
 
-real*8, dimension(8) :: displ_ele
-real*8, dimension(8,8) :: k_elem
-real*8, dimension(8,8) :: m_elem
-real*8, dimension(8) :: r_elem
-real*8, dimension(3,8) :: B
-real*8, dimension(8,3) :: Bt
-real*8, dimension(3,3) :: C
-real*8, dimension(3,8) :: TMP
-real*8, dimension(4) :: gpsha
-real*8, dimension(3) :: strain_elem
+real*8, dimension(24) :: displ_ele
+real*8, dimension(24,24) :: k_elem
+real*8, dimension(24,24) :: m_elem
+real*8, dimension(24)    :: r_elem
+real*8, dimension(6,24) :: B
+real*8, dimension(24,6) :: Bt
+real*8, dimension(6,6)  :: C
+real*8, dimension(6,24) :: TMP
+real*8, dimension(8) :: gpsha
+real*8, dimension(6) :: strain_elem
 real*8 :: gpvol, xmean
-integer*4 :: e, i, j, k, l, m
+integer*4 :: e, i, j, k, l, m, d, d1, d2
 integer*4 :: anode, bnode, adofn, bdofn
 integer*4 :: pnode, ngauss, inode, ivoigt, ipoin
 integer*4 :: idofn, idime
 
 if (.not. stress_calc_on) then
-  allocate(k_tot(num_nodes*2,num_nodes*2))
-  allocate(m_tot(num_nodes*2,num_nodes*2))
-  allocate(r_tot(num_nodes*2))
+  allocate(k_tot(num_nodes*ndime,num_nodes*ndime))
+  allocate(m_tot(num_nodes*ndime,num_nodes*ndime))
+  allocate(r_tot(num_nodes*ndime))
   k_tot = 0.0D0
   m_tot = 0.0D0
   r_tot = 0.0D0
 end if
 
 if (stress_calc_on) then
-  allocate(stress(3,num_nodes))
-  allocate(strain(3,num_nodes))
+  allocate(stress(voight_number,num_nodes))
+  allocate(strain(voight_number,num_nodes))
   stress = 0.0D0
   strain = 0.0D0
 end if
@@ -819,61 +1043,110 @@ displ_ele = 0.0D0
 do e = 1,num_elements_bulk !ELEMENTS LOOP
 
   if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
-    displ_ele(1) = displ(elements_bulk(e,6)*2-1)
-    displ_ele(2) = displ(elements_bulk(e,6)*2)
-    displ_ele(3) = displ(elements_bulk(e,7)*2-1)
-    displ_ele(4) = displ(elements_bulk(e,7)*2)
-    displ_ele(5) = displ(elements_bulk(e,8)*2-1)
-    displ_ele(6) = displ(elements_bulk(e,8)*2)
-    pnode = 3
-    ngauss = 3
+      
+       pnode = 3
+       ngauss = 3
+
   else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
-    displ_ele(1) = displ(elements_bulk(e,6)*2-1)
-    displ_ele(2) = displ(elements_bulk(e,6)*2)
-    displ_ele(3) = displ(elements_bulk(e,7)*2-1)
-    displ_ele(4) = displ(elements_bulk(e,7)*2)
-    displ_ele(5) = displ(elements_bulk(e,8)*2-1)
-    displ_ele(6) = displ(elements_bulk(e,8)*2)
-    displ_ele(7) = displ(elements_bulk(e,9)*2-1)
-    displ_ele(8) = displ(elements_bulk(e,9)*2)
-    pnode = 4
-    ngauss = 4
+       
+       pnode = 4
+       ngauss = 4
+    
+  else if (elements_bulk(e,2) == 5) then !8N-HEXA ELEMENT
+       
+       pnode  = 8
+       ngauss = 8
+       
+  else if (elements_bulk(e,2) == 6) then !6N-PRISM ELEMENT
+       
+       pnode  = 6
+       ngauss = 6
+         
   end if
+  
+  do i = 1,pnode
+     do j = 1,ndime
+        displ_ele((i-1)*ndime + j) = displ( (elements_bulk(e,5+i)-1)*ndime + j )
+     end do
+  end do
   strain_elem = 0.0D0
 
-  if (submodel == 'PLANE_STRESS') then 
-
-    !PLANE STRESS, ISOTROPIC MATERIAL (SIGZZ = 0.0)
-    !ZIENKIEWICZ, VOL. 1, PAG. 90
-    C(1,1) = (young(e)/(1.0D0-poisson(e)**2))*1.0D0 
-    C(1,2) = (young(e)/(1.0D0-poisson(e)**2))*poisson(e)
-    C(1,3) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
-    C(2,1) = (young(e)/(1.0D0-poisson(e)**2))*poisson(e)
-    C(2,2) = (young(e)/(1.0D0-poisson(e)**2))*1.0D0 
-    C(2,3) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
-    C(3,1) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
-    C(3,2) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
-    C(3,3) = (young(e)/(1.0D0-poisson(e)**2))*(1-poisson(e))/2.0D0
-
-  else if(submodel == 'PLANE_STRAIN') then  
-
-    !PLANE STRAIN, ISOTROPIC MATERIAL (SIGZZ != 0.0)
-    !ZIENKIEWICZ, VOL. 1, PAG. 91
-    C(1,1) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*(1-poisson(e))
-    C(1,2) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*poisson(e)
-    C(1,3) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0
-    C(2,1) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*poisson(e)
-    C(2,2) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*(1-poisson(e))
-    C(2,3) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0 
-    C(3,1) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0
-    C(3,2) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0
-    C(3,3) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*(1-2.0D0*poisson(e))/2.0D0
-
-  else
-
-    write(*,*) "In LINEAR treatment you need to specify a submodel: PLANE_STRESS or PLANE_STRAIN... bye!"
-    stop
-
+  if (ndime == 2) then
+     if (submodel == 'PLANE_STRESS') then 
+         !PLANE STRESS, ISOTROPIC MATERIAL (SIGZZ = 0.0)
+         !ZIENKIEWICZ, VOL. 1, PAG. 90
+         C(1,1) = (young(e)/(1.0D0-poisson(e)**2))*1.0D0 
+         C(1,2) = (young(e)/(1.0D0-poisson(e)**2))*poisson(e)
+         C(1,3) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
+         C(2,1) = (young(e)/(1.0D0-poisson(e)**2))*poisson(e)
+         C(2,2) = (young(e)/(1.0D0-poisson(e)**2))*1.0D0 
+         C(2,3) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
+         C(3,1) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
+         C(3,2) = (young(e)/(1.0D0-poisson(e)**2))*0.0D0
+         C(3,3) = (young(e)/(1.0D0-poisson(e)**2))*(1-poisson(e))/2.0D0           
+     else if(submodel == 'PLANE_STRAIN') then       
+         !PLANE STRAIN, ISOTROPIC MATERIAL (SIGZZ != 0.0)
+         !ZIENKIEWICZ, VOL. 1, PAG. 91
+         C(1,1) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*(1-poisson(e))
+         C(1,2) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*poisson(e)
+         C(1,3) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0
+         C(2,1) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*poisson(e)
+         C(2,2) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*(1-poisson(e))
+         C(2,3) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0 
+         C(3,1) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0
+         C(3,2) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*0.0D0
+         C(3,3) = (young(e)/((1.0D0+poisson(e))*(1-2.0D0*poisson(e))))*(1-2.0D0*poisson(e))/2.0D0
+       
+     else
+         write(*,*) "In LINEAR treatment you need to specify a submodel: PLANE_STRESS or PLANE_STRAIN... bye!"
+         stop
+     end if 
+ else if(ndime == 3) then
+ 
+    C(1,1) = 1.0D0 
+    C(1,2) = -poisson(e)
+    C(1,3) = -poisson(e)
+    C(1,4) = 0.0D0
+    C(1,5) = 0.0D0
+    C(1,6) = 0.0D0
+    
+    C(2,1) = -poisson(e)  
+    C(2,2) = 1.0D0
+    C(2,3) = -poisson(e)
+    C(2,4) = 0.0D0
+    C(2,5) = 0.0D0
+    C(2,6) = 0.0D0
+    
+    C(3,1) = -poisson(e)  
+    C(3,2) = -poisson(e)
+    C(3,3) = 1.0D0
+    C(3,4) = 0.0D0
+    C(3,5) = 0.0D0
+    C(3,6) = 0.0D0
+    
+    C(4,1) = 0.0D0
+    C(4,2) = 0.0D0
+    C(4,3) = 0.0D0
+    C(4,4) = 2D0*(1.0D0+poisson(e))
+    C(4,5) = 0.0D0
+    C(4,6) = 0.0D0
+    
+    C(5,1) = 0.0D0
+    C(5,2) = 0.0D0
+    C(5,3) = 0.0D0
+    C(5,4) = 0.0D0
+    C(5,5) = 2D0*(1.0D0+poisson(e))
+    C(5,6) = 0.0D0
+    
+    C(6,1) = 0.0D0
+    C(6,2) = 0.0D0
+    C(6,3) = 0.0D0
+    C(6,4) = 0.0D0
+    C(6,5) = 0.0D0
+    C(6,6) = 2D0*(1.0D0+poisson(e))  
+    
+    C = C/young(e)
+ 
   end if
 
   C = (1.0-damage(e))*C !DAMAGE CONSTANT - ONLY USED WHEN DAMAGE MODEL IS ON
@@ -886,48 +1159,76 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
 
     do inode = 1,pnode !B assembly
 
-      B(1,2*inode-1) = deriv(inode,1,e,i) !dh_inode/dx
-      B(1,2*inode)   = 0.0D0 
-      B(2,2*inode-1) = 0.0D0
-      B(2,2*inode)   = deriv(inode,2,e,i) !dh_inode/dy
-      B(3,2*inode-1) = deriv(inode,2,e,i) !dh_inode/dy
-      B(3,2*inode)   = deriv(inode,1,e,i) !dh_inode/dx
-
+      if (ndime==2) then
+          B(1,2*inode-1) = deriv(inode,1,e,i) !dh_inode/dx
+          B(1,2*inode)   = 0.0D0 
+          B(2,2*inode-1) = 0.0D0
+          B(2,2*inode)   = deriv(inode,2,e,i) !dh_inode/dy
+          B(3,2*inode-1) = deriv(inode,2,e,i) !dh_inode/dy
+          B(3,2*inode)   = deriv(inode,1,e,i) !dh_inode/dx
+      else if(ndime==3) then
+      
+          B(1,3*(inode-1)+1) = deriv(inode,1,e,i)
+          B(1,3*(inode-1)+2) = 0.0D0 
+          B(1,3*(inode-1)+3) = 0.0D0
+          
+          B(2,3*(inode-1)+1) = 0.0D0
+          B(2,3*(inode-1)+2) = deriv(inode,2,e,i) 
+          B(2,3*(inode-1)+3) = 0.0D0
+          
+          B(3,3*(inode-1)+1) = 0.0D0
+          B(3,3*(inode-1)+2) = 0.0D0 
+          B(3,3*(inode-1)+3) = deriv(inode,3,e,i)
+          
+          B(4,3*(inode-1)+1) = deriv(inode,2,e,i)
+          B(4,3*(inode-1)+2) = deriv(inode,1,e,i) 
+          B(4,3*(inode-1)+3) = 0.0D0
+          
+          B(5,3*(inode-1)+1) = 0.0D0
+          B(5,3*(inode-1)+2) = deriv(inode,3,e,i) 
+          B(5,3*(inode-1)+3) = deriv(inode,2,e,i)
+          
+          B(6,3*(inode-1)+1) = deriv(inode,3,e,i)
+          B(6,3*(inode-1)+2) = 0.0D0 
+          B(6,3*(inode-1)+3) = deriv(inode,1,e,i)
+      
+      end if
     end do !end do pnode
-
-    do k = 1,3
-      do m = 1,(2*pnode)
+    
+    do k = 1,voight_number
+      do m = 1,(ndime*pnode)
         Bt(m,k) = B(k,m)
       end do
     end do
 
     TMP = 0.0D0
-    do k = 1,3
-      do m = 1,(2*pnode)
-        do l = 1,3
+    do k = 1,voight_number
+      do m = 1,(ndime*pnode)
+        do l = 1,voight_number
           TMP(k,m) = TMP(k,m) + C(k,l)*B(l,m)
         end do
       end do
     end do
 
+    gpvol = det_jac(e,i)*weight(i,pnode-2) 
     if (.not. stress_calc_on) then
       !ELEMENTAL STIFFNESS MATRIX
-      do k = 1,(2*pnode)
-        do m = 1,(2*pnode)
-          do l = 1,3
-            k_elem(k,m) = k_elem(k,m) + Bt(k,l)*TMP(l,m)*det_jac(e,i)*weight(i,pnode-2)
+      do k = 1,(ndime*pnode)
+        do m = 1,(ndime*pnode)
+          do l = 1,voight_number
+            k_elem(k,m) = k_elem(k,m) + Bt(k,l)*TMP(l,m)*gpvol
           end do
         end do
       end do
 
       !ELEMENTAL MASS MATRIX
-      gpvol = det_jac(e,i)*weight(i,pnode-2) 
+      
       call shapefunc(pnode,i,gpsha)
-      do idime = 1,2
+      do idime = 1,ndime
         do anode = 1,pnode
-          adofn = (anode-1)*2+idime
+          adofn = (anode-1)*ndime+idime
           do bnode = 1,pnode
-              bdofn = (bnode-1)*2+idime
+              bdofn = (bnode-1)*ndime+idime
               m_elem(adofn,bdofn) = m_elem(adofn,bdofn) + density(e)*gpsha(anode)*gpsha(bnode)*gpvol
           end do
         end do
@@ -938,8 +1239,8 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
         gpvol = det_jac(e,i)*weight(i,pnode-2) 
         call shapefunc(pnode,i,gpsha)
         do inode = 1,pnode
-          idofn = (inode-1)*2
-          do idime = 1,2
+          idofn = (inode-1)*ndime
+          do idime = 1,ndime
             idofn = idofn + 1
             r_elem(idofn) = r_elem(idofn) + (gpsha(inode)*density(e)*gpvol)*(grav_magnitude*grav_direction(idime))
           end do
@@ -950,11 +1251,11 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
     if (stress_calc_on) then
       gpvol = det_jac(e,i)*weight(i,pnode-2) 
       call shapefunc(pnode,i,gpsha)
-      do ivoigt = 1,3
+      do ivoigt = 1,voight_number
         do inode = 1,pnode
           xmean = gpsha(inode)*gpvol
           strain_elem(ivoigt) = strain_elem(ivoigt) + &
-              xmean*B(ivoigt,2*inode-1)*displ_ele(2*inode-1) + xmean*B(ivoigt,2*inode)*displ_ele(2*inode) 
+              xmean*B(ivoigt,ndime*inode-1)*displ_ele(ndime*inode-1) + xmean*B(ivoigt,ndime*inode)*displ_ele(ndime*inode) 
         end do
       end do
     end if
@@ -962,47 +1263,43 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
   end do !end do ngauss
  
   !RESIDUAL CALCULATION (R - K*d)
-  do i = 1,(2*pnode)
-      do m = 1,(2*pnode)
+  do i = 1,(ndime*pnode)
+      do m = 1,(ndime*pnode)
         r_elem(i) = r_elem(i) - k_elem(i,m)*displ_ele(m)
       end do
   end do
+
   
   if (.not. stress_calc_on) then
-    do i = 1,pnode
-      !GLOBAL STIFFNESS MATRIX
-      do j = 1,pnode
-        k_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)-1) = & !k_tot(u1,u1)
-          k_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)-1) + k_elem((2*i)-1,(2*j)-1)
-        k_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)) = & !k_tot(u1,v1)
-          k_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)) + k_elem((2*i)-1,(2*j))
-        k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)-1) = & !k_tot(v1,u1)
-          k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)-1) + k_elem((2*i),(2*j)-1)
-        k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) = & !k_tot(v1,v1)
-          k_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) + k_elem((2*i),(2*j))
+  
+     !GLOBAL STIFFNESS MATRIX
+     do i = 1,pnode
+       do d1 = 1,ndime
+         do j = 1,pnode
+           do d2 = 1,ndime
 
-        m_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)-1) = & !m_tot(u1,u1)
-          m_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)-1) + m_elem((2*i)-1,(2*j)-1)
-        m_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)) = & !m_tot(u1,v1)
-          m_tot((elements_bulk(e,(5+i))*2)-1,(elements_bulk(e,(5+j))*2)) + m_elem((2*i)-1,(2*j))
-        m_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)-1) = & !m_tot(v1,u1)
-          m_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)-1) + m_elem((2*i),(2*j)-1)
-        m_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) = & !m_tot(v1,v1)
-          m_tot((elements_bulk(e,(5+i))*2),(elements_bulk(e,(5+j))*2)) + m_elem((2*i),(2*j))
-      end do
-      
-      !GLOBAL RESIDUAL VECTOR
-      r_tot((elements_bulk(e,(5+i))*2)-1) = r_tot((elements_bulk(e,(5+i))*2)-1) + r_elem((2*i)-1)
-      r_tot(elements_bulk(e,(5+i))*2) = r_tot(elements_bulk(e,(5+i))*2) + r_elem(2*i)
-    end do
+           k_tot((elements_bulk(e,(5+i))-1)*ndime+d1,(elements_bulk(e,(5+j))-1)*ndime+d2) = & 
+              k_tot((elements_bulk(e,(5+i))-1)*ndime+d1,(elements_bulk(e,(5+j))-1)*ndime+d2) + k_elem((i-1)*ndime+d1,(j-1)*ndime+d2)
+
+           m_tot((elements_bulk(e,(5+i))-1)*ndime+d1,(elements_bulk(e,(5+j))-1)*ndime+d2) = &  
+              m_tot((elements_bulk(e,(5+i))-1)*ndime+d1,(elements_bulk(e,(5+j))-1)*ndime+d2) + m_elem((i-1)*ndime+d1,(j-1)*ndime+d2)
+              
+           end do
+         end do      
+         
+        !GLOBAL RESIDUAL VECTOR
+        r_tot((elements_bulk(e,(5+i))-1)*ndime + d1) = r_tot((elements_bulk(e,(5+i))-1)*ndime + d1) + r_elem((i-1)*ndime+d1)
+       end do 
+     end do
+     
   end if
 
   if (stress_calc_on) then
     do inode = 1,pnode
       ipoin = elements_bulk(e,5+inode)
-      do ivoigt = 1,3
+      do ivoigt = 1,voight_number
         strain(ivoigt,ipoin) = strain(ivoigt,ipoin) + strain_elem(ivoigt)
-        do k = 1,3
+        do k = 1,voight_number
           stress(ivoigt,ipoin) = stress(ivoigt,ipoin) + C(ivoigt,k)*strain_elem(k)
         end do
       end do
@@ -1010,6 +1307,9 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
   end if
 
 end do !end do elements
+
+b_test = B
+k_elem_test = k_elem
 
 if (stress_calc_on) then
   do ipoin = 1,num_nodes
