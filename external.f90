@@ -28,6 +28,12 @@ integer*4 :: num_nodes
 real*8, allocatable, dimension(:,:,:) :: pgauss
 real*8, allocatable, dimension(:,:) :: weight
 
+real*8, allocatable, dimension(:,:) :: pgauss_tria3
+real*8, allocatable, dimension(:)   :: weight_tria3
+real*8, allocatable, dimension(:,:) :: pgauss_quad4
+real*8, allocatable, dimension(:)   :: weight_quad4
+real*8, allocatable, dimension(:,:) :: pgauss_tetra4
+real*8, allocatable, dimension(:)   :: weight_tetra4
 real*8, allocatable, dimension(:,:) :: pgauss_hexa8
 real*8, allocatable, dimension(:)   :: weight_hexa8
 real*8, allocatable, dimension(:,:) :: pgauss_prism6
@@ -87,21 +93,45 @@ weight(2,2) = 1.0D0
 weight(3,2) = 1.0D0
 weight(4,2) = 1.0D0
 
-weight(1,6) = 1.0D0
-weight(2,6) = 1.0D0
-weight(3,6) = 1.0D0
-weight(4,6) = 1.0D0
-weight(5,6) = 1.0D0
-weight(6,6) = 1.0D0
-weight(7,6) = 1.0D0
-weight(8,6) = 1.0D0
+allocate(weight_tria3(3))
 
-weight(1,4) = 0.166666666666666D0
-weight(2,4) = 0.166666666666666D0
-weight(3,4) = 0.166666666666666D0
-weight(4,4) = 0.166666666666666D0
-weight(5,4) = 0.166666666666666D0
-weight(6,4) = 0.166666666666666D0
+weight_tria3(1) = 1.0D0/6.0D0
+weight_tria3(2) = 1.0D0/6.0D0
+weight_tria3(3) = 1.0D0/6.0D0
+
+allocate(weight_quad4(4))
+
+weight_quad4(1) = 1.0D0
+weight_quad4(2) = 1.0D0
+weight_quad4(3) = 1.0D0
+weight_quad4(4) = 1.0D0
+
+allocate(weight_tetra4(4))
+
+weight_prism6(1) = 1.0D0/24.0D0
+weight_prism6(2) = 1.0D0/24.0D0
+weight_prism6(3) = 1.0D0/24.0D0
+weight_prism6(4) = 1.0D0/24.0D0
+
+allocate(weight_hexa8(8))
+
+weight_hexa8(1) = 1.0D0
+weight_hexa8(2) = 1.0D0
+weight_hexa8(3) = 1.0D0
+weight_hexa8(4) = 1.0D0
+weight_hexa8(5) = 1.0D0
+weight_hexa8(6) = 1.0D0
+weight_hexa8(7) = 1.0D0
+weight_hexa8(8) = 1.0D0
+
+allocate(weight_prism6(6))
+
+weight_prism6(1) = 1.0D0/6.0D0
+weight_prism6(2) = 1.0D0/6.0D0
+weight_prism6(3) = 1.0D0/6.0D0
+weight_prism6(4) = 1.0D0/6.0D0
+weight_prism6(5) = 1.0D0/6.0D0
+weight_prism6(6) = 1.0D0/6.0D0
 
 allocate(pgauss(4,2,2))
 pgauss = 0.0D0
@@ -121,63 +151,110 @@ pgauss(3,2,2) = 0.577350269189626D0
 pgauss(4,1,2) = -0.577350269189626D0 
 pgauss(4,2,2) = 0.577350269189626D0
 
+
+allocate(pgauss_tria3(3,2))
+
+pgauss_tria3(1,1) = 1.0D0/6.0D0
+pgauss_tria3(1,2) = 1.0D0/6.0D0
+
+pgauss_tria3(2,1) = 2.0D0/3.0D0
+pgauss_tria3(2,2) = 1.0D0/6.0D0
+
+pgauss_tria3(3,1) = 1.0D0/6.0D0
+pgauss_tria3(3,2) = 2.0D0/3.0D0
+       
+
+allocate(pgauss_quad4(4))
+
+pgauss_quad4(1,1) = -1.0D0/sqrt(3.0D0)
+pgauss_quad4(1,2) = -1.0D0/sqrt(3.0D0)
+
+pgauss_quad4(2,1) = +1.0D0/sqrt(3.0D0)
+pgauss_quad4(2,2) = -1.0D0/sqrt(3.0D0)
+
+pgauss_quad4(3,1) = +1.0D0/sqrt(3.0D0)
+pgauss_quad4(3,2) = +1.0D0/sqrt(3.0D0)
+
+pgauss_quad4(4,1) = -1.0D0/sqrt(3.0D0)
+pgauss_quad4(4,2) = +1.0D0/sqrt(3.0D0)
+
+allocate(pgauss_tetra4(4,3))
+
+pgauss_tetra4(1,1) = (5.0D0-sqrt(5.0D0))/20.0D0
+pgauss_tetra4(1,2) = (5.0D0-sqrt(5.0D0))/20.0D0
+pgauss_tetra4(1,3) = (5.0D0-sqrt(5.0D0))/20.0D0
+
+pgauss_tetra4(2,1) = (5.0D0+3.0D0*sqrt(5.0D0))/20.0D0
+pgauss_tetra4(2,2) = (5.0D0-sqrt(5.0D0))/20.0D0
+pgauss_tetra4(2,3) = (5.0D0-sqrt(5.0D0))/20.0D0
+
+pgauss_tetra4(3,1) = (5.0D0-sqrt(5.0D0))/20.0D0
+pgauss_tetra4(3,2) = (5.0D0+3.0D0*sqrt(5.0D0))/20.0D0
+pgauss_tetra4(3,3) = (5.0D0-sqrt(5.0D0))/20.0D0
+       
+pgauss_tetra4(4,1) = (5.0D0-sqrt(5.0D0))/20.0D0
+pgauss_tetra4(4,2) = (5.0D0-sqrt(5.0D0))/20.0D0
+pgauss_tetra4(4,3) = (5.0D0+3.0D0*sqrt(5.0D0))/20.0D0
+
 allocate(pgauss_hexa8(8,3))
-pgauss_hexa8(1,1) = -0.577350269189626D0
-pgauss_hexa8(1,2) = -0.577350269189626D0
-pgauss_hexa8(1,3) = -0.577350269189626D0
 
-pgauss_hexa8(2,1) = +0.577350269189626D0
-pgauss_hexa8(2,2) = -0.577350269189626D0
-pgauss_hexa8(2,3) = -0.577350269189626D0
+pgauss_hexa8(1,1) = -1.0D0/sqrt(3.0D0)
+pgauss_hexa8(1,2) = -1.0D0/sqrt(3.0D0)
+pgauss_hexa8(1,3) = -1.0D0/sqrt(3.0D0)
 
-pgauss_hexa8(3,1) = +0.577350269189626D0
-pgauss_hexa8(3,2) = +0.577350269189626D0
-pgauss_hexa8(3,3) = -0.577350269189626D0
+pgauss_hexa8(2,1) = +1.0D0/sqrt(3.0D0)
+pgauss_hexa8(2,2) = -1.0D0/sqrt(3.0D0)
+pgauss_hexa8(2,3) = -1.0D0/sqrt(3.0D0)
 
-pgauss_hexa8(4,1) = -0.577350269189626D0
-pgauss_hexa8(4,2) = +0.577350269189626D0
-pgauss_hexa8(4,3) = -0.577350269189626D0
+pgauss_hexa8(3,1) = +1.0D0/sqrt(3.0D0)
+pgauss_hexa8(3,2) = +1.0D0/sqrt(3.0D0)
+pgauss_hexa8(3,3) = -1.0D0/sqrt(3.0D0)
+
+pgauss_hexa8(4,1) = -1.0D0/sqrt(3.0D0)
+pgauss_hexa8(4,2) = +1.0D0/sqrt(3.0D0)
+pgauss_hexa8(4,3) = -1.0D0/sqrt(3.0D0)
              
-pgauss_hexa8(5,1) = -0.577350269189626D0
-pgauss_hexa8(5,2) = -0.577350269189626D0
-pgauss_hexa8(5,3) = +0.577350269189626D0
+pgauss_hexa8(5,1) = -1.0D0/sqrt(3.0D0)
+pgauss_hexa8(5,2) = -1.0D0/sqrt(3.0D0)
+pgauss_hexa8(5,3) = +1.0D0/sqrt(3.0D0)
 
-pgauss_hexa8(6,1) = +0.577350269189626D0
-pgauss_hexa8(6,2) = -0.577350269189626D0
-pgauss_hexa8(6,3) = +0.577350269189626D0
+pgauss_hexa8(6,1) = +1.0D0/sqrt(3.0D0)
+pgauss_hexa8(6,2) = -1.0D0/sqrt(3.0D0)
+pgauss_hexa8(6,3) = +1.0D0/sqrt(3.0D0)
 
-pgauss_hexa8(7,1) = +0.577350269189626D0
-pgauss_hexa8(7,2) = +0.577350269189626D0
-pgauss_hexa8(7,3) = +0.577350269189626D0
+pgauss_hexa8(7,1) = +1.0D0/sqrt(3.0D0)
+pgauss_hexa8(7,2) = +1.0D0/sqrt(3.0D0)
+pgauss_hexa8(7,3) = +1.0D0/sqrt(3.0D0)
 
-pgauss_hexa8(8,1) = -0.577350269189626D0
-pgauss_hexa8(8,2) = +0.577350269189626D0
-pgauss_hexa8(8,3) = +0.577350269189626D0
+pgauss_hexa8(8,1) = -1.0D0/sqrt(3.0D0)
+pgauss_hexa8(8,2) = +1.0D0/sqrt(3.0D0)
+pgauss_hexa8(8,3) = +1.0D0/sqrt(3.0D0)
 
 allocate(pgauss_prism6(6,3))
-pgauss_prism6(1,1) = +0.166666666666666D0
-pgauss_prism6(1,2) = +0.166666666666666D0
-pgauss_prism6(1,3) = -0.577350269189626D0
 
-pgauss_prism6(2,1) = +0.66666666666666D0
-pgauss_prism6(2,2) = +0.166666666666666D0
-pgauss_prism6(2,3) = -0.577350269189626D0
+pgauss_prism6(1,1) = +0.5D0
+pgauss_prism6(1,2) = +0.5D0
+pgauss_prism6(1,3) = -1.0D0/sqrt(3.0D0)
 
-pgauss_prism6(3,1) = +0.166666666666666D0
-pgauss_prism6(3,2) = +0.66666666666666D0
-pgauss_prism6(3,3) = -0.577350269189626D0
+pgauss_prism6(2,1) = +0.0D0
+pgauss_prism6(2,2) = +0.5D0
+pgauss_prism6(2,3) = -1.0D0/sqrt(3.0D0)
 
-pgauss_prism6(4,1) = +0.166666666666666D0
-pgauss_prism6(4,2) = +0.166666666666666D0
-pgauss_prism6(4,3) = +0.577350269189626D0
+pgauss_prism6(3,1) = +0.5D0
+pgauss_prism6(3,2) = +0.0D0
+pgauss_prism6(3,3) = -1.0D0/sqrt(3.0D0)
 
-pgauss_prism6(5,1) = +0.66666666666666D0
-pgauss_prism6(5,2) = +0.166666666666666D0
-pgauss_prism6(5,3) = -0.577350269189626D0
+pgauss_prism6(4,1) = +0.5D0
+pgauss_prism6(4,2) = +0.5D0
+pgauss_prism6(4,3) = +1.0D0/sqrt(3.0D0)
 
-pgauss_prism6(6,1) = +0.166666666666666D0
-pgauss_prism6(6,2) = +0.66666666666666D0
-pgauss_prism6(6,3) = -0.577350269189626D0
+pgauss_prism6(5,1) = +0.0D0
+pgauss_prism6(5,2) = +0.5D0
+pgauss_prism6(5,3) = +1.0D0/sqrt(3.0D0)
+
+pgauss_prism6(6,1) = +0.5D0
+pgauss_prism6(6,2) = +0.0D0
+pgauss_prism6(6,3) = +1.0D0/sqrt(3.0D0)
 
 allocate(young(num_elements_bulk))
 allocate(poisson(num_elements_bulk))
@@ -1507,6 +1584,16 @@ deallocate(deriv)
 deallocate(vmass)
 deallocate(weight)
 deallocate(pgauss)
+deallocate(weight_tria3)
+deallocate(pgauss_tria3)
+deallocate(weight_quad4)
+deallocate(pgauss_quad4)
+deallocate(weight_tetra4)
+deallocate(pgauss_tetra4)
+deallocate(weight_hexa8)
+deallocate(pgauss_hexa8)
+deallocate(weight_prism6)
+deallocate(pgauss_prism6)
 deallocate(young)
 deallocate(poisson)
 deallocate(density)
