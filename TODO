@@ -1,4 +1,6 @@
 -- add boundary conditions definition over nodes (only concentrated forces, displacements were already implemented)
 -- add user ramp option for pressure (as it is implemented for dirichlet)
--- add temporal integration (which needs addition of the mass matrix)
--- add 3D (tetras and hexas) support
+-- add 3D support for nonlinear formulation
+-- add convergence criteria for residual in nonlinear model (as it is for linear)
+-- add intertial term in residual calculation in linear model
+-- check static wave_linear example convergence
