@@ -82,6 +82,8 @@ contains
 
 subroutine init()
 
+implicit none
+
 allocate(weight(8,6))
 weight = 0.0D0
 weight(1,1) = 0.166666666666666D0
@@ -108,10 +110,10 @@ weight_quad4(4) = 1.0D0
 
 allocate(weight_tetra4(4))
 
-weight_prism6(1) = 1.0D0/24.0D0
-weight_prism6(2) = 1.0D0/24.0D0
-weight_prism6(3) = 1.0D0/24.0D0
-weight_prism6(4) = 1.0D0/24.0D0
+weight_tetra4(1) = 1.0D0/24.0D0
+weight_tetra4(2) = 1.0D0/24.0D0
+weight_tetra4(3) = 1.0D0/24.0D0
+weight_tetra4(4) = 1.0D0/24.0D0
 
 allocate(weight_hexa8(8))
 
@@ -164,7 +166,7 @@ pgauss_tria3(3,1) = 1.0D0/6.0D0
 pgauss_tria3(3,2) = 2.0D0/3.0D0
        
 
-allocate(pgauss_quad4(4))
+allocate(pgauss_quad4(4,2))
 
 pgauss_quad4(1,1) = -1.0D0/sqrt(3.0D0)
 pgauss_quad4(1,2) = -1.0D0/sqrt(3.0D0)
@@ -284,84 +286,112 @@ real*8, dimension(8,3), intent(out) :: dh
 
 dh = 0.0D0
 if (ndime == 2) then
+
    if (pnode == 3) then
-     dh(1,1) = -1D0 !dh1/deta
-     dh(1,2) = -1D0 !dh1/dxi
-     dh(2,1) = 1D0 !dh2/deta
-     dh(2,2) = 0D0 !dh2/dxi
-     dh(3,1) = 0D0 !dh3/deta
-     dh(3,2) = 1D0 !dh3/dxi
+     
+     dh(1,1) = -1.0D0 !dh1/deta
+     dh(1,2) = -1.0D0 !dh1/dxi
+     
+     dh(2,1) = +1.0D0 !dh2/deta
+     dh(2,2) = +0.0D0 !dh2/dxi
+     
+     dh(3,1) = +0.0D0 !dh3/deta
+     dh(3,2) = +1.0D0 !dh3/dxi
+     
    else if(pnode == 4) then
-     dh(1,1) = -(1D0 - pgauss(igauss,2,2))/4.0D0 !dh1/eta
-     dh(1,2) = -(1D0 - pgauss(igauss,1,2))/4.0D0 !dh1/xi
-     dh(2,1) = (1D0 - pgauss(igauss,2,2))/4.0D0  !dh2/eta
-     dh(2,2) = -(1D0 + pgauss(igauss,1,2))/4.0D0  !dh2/xi
-     dh(3,1) = (1D0 + pgauss(igauss,2,2))/4.0D0  !dh3/eta
-     dh(3,2) = (1D0 + pgauss(igauss,1,2))/4.0D0  !dh3/xi
-     dh(4,1) = -(1D0 + pgauss(igauss,2,2))/4.0D0  !dh4/deta
-     dh(4,2) = (1D0 - pgauss(igauss,1,2))/4.0D0 !dh4/dxi
-   end if
+     
+     dh(1,1) = -(1.0D0 - pgauss_quad4(igauss,2))/4.0D0  !dh1/eta
+     dh(1,2) = -(1.0D0 - pgauss_quad4(igauss,1))/4.0D0  !dh1/xi
+     
+     dh(2,1) = +(1.0D0 - pgauss_quad4(igauss,2))/4.0D0  !dh2/eta
+     dh(2,2) = -(1.0D0 + pgauss_quad4(igauss,1))/4.0D0  !dh2/xi
+     
+     dh(3,1) = +(1.0D0 + pgauss_quad4(igauss,2))/4.0D0  !dh3/eta
+     dh(3,2) = +(1.0D0 + pgauss_quad4(igauss,2))/4.0D0  !dh3/xi
+     
+     dh(4,1) = -(1.0D0 + pgauss_quad4(igauss,2))/4.0D0  !dh4/deta
+     dh(4,2) = +(1.0D0 - pgauss_quad4(igauss,2))/4.0D0  !dh4/dxi
+
+  end if
 
 else if(ndime == 3) then
    
-   if (pnode == 8) then
+   if (pnode == 4) then
    
-     dh(1,1) = -(1D0 - pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
-     dh(1,2) = -(1D0 - pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
-     dh(1,3) = -(1D0 - pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))/8.0D0
+     dh(1,1) = -1.0D0 
+     dh(1,2) = -1.0D0 
+     dh(1,3) = -1.0D0 
      
-     dh(2,1) = +(1D0 - pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
-     dh(2,2) = -(1D0 + pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
-     dh(2,3) = -(1D0 + pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))/8.0D0
+     dh(2,1) = +1.0D0 
+     dh(2,2) = +0.0D0
+     dh(2,3) = +0.0D0 
      
-     dh(3,1) = +(1D0 + pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
-     dh(3,2) = +(1D0 + pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
-     dh(3,3) = -(1D0 + pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))/8.0D0
+     dh(3,1) = +0.0D0
+     dh(3,2) = +1.0D0
+     dh(3,3) = +0.0D0
      
-     dh(4,1) = -(1D0 + pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
-     dh(4,2) = +(1D0 - pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
-     dh(4,3) = -(1D0 - pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))/8.0D0
-     
-     dh(5,1) = -(1D0 - pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
-     dh(5,2) = -(1D0 - pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
-     dh(5,3) = +(1D0 - pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))/8.0D0
-     
-     dh(6,1) = +(1D0 - pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
-     dh(6,2) = -(1D0 + pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
-     dh(6,3) = +(1D0 + pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))/8.0D0
-     
-     dh(7,1) = +(1D0 + pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
-     dh(7,2) = +(1D0 + pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
-     dh(7,3) = +(1D0 + pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))/8.0D0
-     
-     dh(8,1) = -(1D0 + pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
-     dh(8,2) = +(1D0 - pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
-     dh(8,3) = +(1D0 - pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))/8.0D0
+     dh(4,1) = +0.0D0
+     dh(4,2) = +0.0D0
+     dh(4,3) = +1.0D0
+   
+   else if (pnode == 8) then
+   
+     dh(1,1) = -(1.0D0 - pgauss_hexa8(igauss,2))*(1.0D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(1,2) = -(1.0D0 - pgauss_hexa8(igauss,1))*(1.0D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(1,3) = -(1.0D0 - pgauss_hexa8(igauss,1))*(1.0D0 - pgauss_hexa8(igauss,2))/8.0D0
+                                     
+     dh(2,1) = +(1.0D0 - pgauss_hexa8(igauss,2))*(1.0D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(2,2) = -(1.0D0 + pgauss_hexa8(igauss,1))*(1.0D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(2,3) = -(1.0D0 + pgauss_hexa8(igauss,1))*(1.0D0 - pgauss_hexa8(igauss,2))/8.0D0
+                       
+     dh(3,1) = +(1.0D0 + pgauss_hexa8(igauss,2))*(1.0D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(3,2) = +(1.0D0 + pgauss_hexa8(igauss,1))*(1.0D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(3,3) = -(1.0D0 + pgauss_hexa8(igauss,1))*(1.0D0 + pgauss_hexa8(igauss,2))/8.0D0
+                                                 
+     dh(4,1) = -(1.0D0 + pgauss_hexa8(igauss,2))*(1.0D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(4,2) = +(1.0D0 - pgauss_hexa8(igauss,1))*(1.0D0 - pgauss_hexa8(igauss,3))/8.0D0
+     dh(4,3) = -(1.0D0 - pgauss_hexa8(igauss,1))*(1.0D0 + pgauss_hexa8(igauss,2))/8.0D0
+                                  
+     dh(5,1) = -(1.0D0 - pgauss_hexa8(igauss,2))*(1.0D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(5,2) = -(1.0D0 - pgauss_hexa8(igauss,1))*(1.0D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(5,3) = +(1.0D0 - pgauss_hexa8(igauss,1))*(1.0D0 - pgauss_hexa8(igauss,2))/8.0D0
+                                   
+     dh(6,1) = +(1.0D0 - pgauss_hexa8(igauss,2))*(1.0D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(6,2) = -(1.0D0 + pgauss_hexa8(igauss,1))*(1.0D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(6,3) = +(1.0D0 + pgauss_hexa8(igauss,1))*(1.0D0 - pgauss_hexa8(igauss,2))/8.0D0
+                                     
+     dh(7,1) = +(1.0D0 + pgauss_hexa8(igauss,2))*(1.0D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(7,2) = +(1.0D0 + pgauss_hexa8(igauss,1))*(1.0D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(7,3) = +(1.0D0 + pgauss_hexa8(igauss,1))*(1.0D0 + pgauss_hexa8(igauss,2))/8.0D0
+                                                  
+     dh(8,1) = -(1.0D0 + pgauss_hexa8(igauss,2))*(1.0D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(8,2) = +(1.0D0 - pgauss_hexa8(igauss,1))*(1.0D0 + pgauss_hexa8(igauss,3))/8.0D0
+     dh(8,3) = +(1.0D0 - pgauss_hexa8(igauss,1))*(1.0D0 + pgauss_hexa8(igauss,2))/8.0D0
       
    else if(pnode == 6) then
    
-     dh(1,1) = -(1D0)*(1D0 - pgauss_prism6(igauss,3))/2.0D0
-     dh(1,2) = -(1D0)*(1D0 - pgauss_prism6(igauss,3))/2.0D0   
-     dh(1,3) = -(1D0 - pgauss_prism6(igauss,1) - pgauss_prism6(igauss,2))/2.0D0   
+     dh(1,1) = -(1.0D0)*(1.0D0 - pgauss_prism6(igauss,3))/2.0D0
+     dh(1,2) = -(1.0D0)*(1.0D0 - pgauss_prism6(igauss,3))/2.0D0   
+     dh(1,3) = -(1.0D0 - pgauss_prism6(igauss,1) - pgauss_prism6(igauss,2))/2.0D0   
         
-     dh(2,1) = +(1D0)*(1D0 - pgauss_prism6(igauss,3))/2.0D0 
-     dh(2,2) = -(0D0)*(1D0 - pgauss_prism6(igauss,3))/2.0D0    
+     dh(2,1) = +(1.0D0)*(1.0D0 - pgauss_prism6(igauss,3))/2.0D0 
+     dh(2,2) = -(0.0D0)*(1.0D0 - pgauss_prism6(igauss,3))/2.0D0    
      dh(2,3) = -( + pgauss_prism6(igauss,1) )/2.0D0  
         
-     dh(3,1) = -(0D0)*(1D0 - pgauss_prism6(igauss,3))/2.0D0   
-     dh(3,2) = -(1D0)*(1D0 - pgauss_prism6(igauss,3))/2.0D0      
+     dh(3,1) = -(0D0)*(1.0D0 - pgauss_prism6(igauss,3))/2.0D0   
+     dh(3,2) = -(1D0)*(1.0D0 - pgauss_prism6(igauss,3))/2.0D0      
      dh(3,3) = -( + pgauss_prism6(igauss,2) )/2.0D0    
         
-     dh(4,1) = -(1D0)*(1D0 + pgauss_prism6(igauss,3))/2.0D0
-     dh(4,2) = -(1D0)*(1D0 + pgauss_prism6(igauss,3))/2.0D0   
-     dh(4,3) = +(1D0 - pgauss_prism6(igauss,1) - pgauss_prism6(igauss,2))/2.0D0   
+     dh(4,1) = -(1.0D0)*(1.0D0 + pgauss_prism6(igauss,3))/2.0D0
+     dh(4,2) = -(1.0D0)*(1.0D0 + pgauss_prism6(igauss,3))/2.0D0   
+     dh(4,3) = +(1.0D0 - pgauss_prism6(igauss,1) - pgauss_prism6(igauss,2))/2.0D0   
         
-     dh(5,1) = +(1D0)*(1D0 + pgauss_prism6(igauss,3))/2.0D0 
-     dh(5,2) = -(0D0)*(1D0 + pgauss_prism6(igauss,3))/2.0D0    
+     dh(5,1) = +(1.0D0)*(1.0D0 + pgauss_prism6(igauss,3))/2.0D0 
+     dh(5,2) = -(0.0D0)*(1.0D0 + pgauss_prism6(igauss,3))/2.0D0    
      dh(5,3) = +( + pgauss_prism6(igauss,1) )/2.0D0  
      
-     dh(6,1) = -(0D0)*(1D0 + pgauss_prism6(igauss,3))/2.0D0   
-     dh(6,2) = -(1D0)*(1D0 + pgauss_prism6(igauss,3))/2.0D0      
+     dh(6,1) = -(0.0D0)*(1.0D0 + pgauss_prism6(igauss,3))/2.0D0   
+     dh(6,2) = -(1.0D0)*(1.0D0 + pgauss_prism6(igauss,3))/2.0D0      
      dh(6,3) = +( + pgauss_prism6(igauss,2) )/2.0D0    
 
    end if
@@ -383,37 +413,48 @@ gpsha = 0.0D0
 if (ndime == 2) then
 
   if (pnode == 3) then
-      gpsha(1) = 1D0 - pgauss(igauss,1,pnode-2) - pgauss(igauss,2,pnode-2) !1-eta-xi 
-      gpsha(2) = pgauss(igauss,1,pnode-2) !eta
-      gpsha(3) = pgauss(igauss,2,pnode-2) !xi
+  
+      gpsha(1) = 1.0D0 - pgauss_tria3(igauss,1) - pgauss_tria3(igauss,2) !1-eta-xi 
+      gpsha(2) = pgauss_tria3(igauss,1) !eta
+      gpsha(3) = pgauss_tria3(igauss,2) !xi
+      
   else if(pnode == 4) then
-      gpsha(1) = (1D0 - pgauss(igauss,1,pnode-2))*(1D0 - pgauss(igauss,2,pnode-2))/4.0D0
-      gpsha(2) = (1D0 + pgauss(igauss,1,pnode-2))*(1D0 - pgauss(igauss,2,pnode-2))/4.0D0
-      gpsha(3) = (1D0 + pgauss(igauss,1,pnode-2))*(1D0 + pgauss(igauss,2,pnode-2))/4.0D0
-      gpsha(4) = (1D0 - pgauss(igauss,1,pnode-2))*(1D0 + pgauss(igauss,2,pnode-2))/4.0D0
+  
+      gpsha(1) = (1.0D0 - pgauss_quad4(igauss,1))*(1.0D0 - pgauss_quad4(igauss,2))/4.0D0
+      gpsha(2) = (1.0D0 + pgauss_quad4(igauss,1))*(1.0D0 - pgauss_quad4(igauss,2))/4.0D0
+      gpsha(3) = (1.0D0 + pgauss_quad4(igauss,1))*(1.0D0 + pgauss_quad4(igauss,2))/4.0D0
+      gpsha(4) = (1.0D0 - pgauss_quad4(igauss,1))*(1.0D0 + pgauss_quad4(igauss,2))/4.0D0
+  
   end if
   
 else if (ndime == 3) then
 
-  if (pnode == 8) then
+  if (pnode == 4) then
       
-      gpsha(1) = (1D0 - pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
-      gpsha(2) = (1D0 + pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
-      gpsha(3) = (1D0 + pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
-      gpsha(4) = (1D0 - pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))*(1D0 - pgauss_hexa8(igauss,3))/8.0D0
-      gpsha(5) = (1D0 - pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
-      gpsha(6) = (1D0 + pgauss_hexa8(igauss,1))*(1D0 - pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
-      gpsha(7) = (1D0 + pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
-      gpsha(8) = (1D0 - pgauss_hexa8(igauss,1))*(1D0 + pgauss_hexa8(igauss,2))*(1D0 + pgauss_hexa8(igauss,3))/8.0D0
+      gpsha(1) = 1.0D0 - pgauss_tetra4(igauss,1) - pgauss_tetra4(igauss,2) - pgauss_tetra4(igauss,3)
+      gpsha(2) = + pgauss_tetra4(igauss,1)
+      gpsha(3) = + pgauss_tetra4(igauss,2)
+      gpsha(4) = + pgauss_tetra4(igauss,3)
+
+  else if (pnode == 8) then
+      
+      gpsha(1) = (1.0D0 - pgauss_hexa8(igauss,1))*(1.0D0 - pgauss_hexa8(igauss,2))*(1.0D0 - pgauss_hexa8(igauss,3))/8.0D0
+      gpsha(2) = (1.0D0 + pgauss_hexa8(igauss,1))*(1.0D0 - pgauss_hexa8(igauss,2))*(1.0D0 - pgauss_hexa8(igauss,3))/8.0D0
+      gpsha(3) = (1.0D0 + pgauss_hexa8(igauss,1))*(1.0D0 + pgauss_hexa8(igauss,2))*(1.0D0 - pgauss_hexa8(igauss,3))/8.0D0
+      gpsha(4) = (1.0D0 - pgauss_hexa8(igauss,1))*(1.0D0 + pgauss_hexa8(igauss,2))*(1.0D0 - pgauss_hexa8(igauss,3))/8.0D0
+      gpsha(5) = (1.0D0 - pgauss_hexa8(igauss,1))*(1.0D0 - pgauss_hexa8(igauss,2))*(1.0D0 + pgauss_hexa8(igauss,3))/8.0D0
+      gpsha(6) = (1.0D0 + pgauss_hexa8(igauss,1))*(1.0D0 - pgauss_hexa8(igauss,2))*(1.0D0 + pgauss_hexa8(igauss,3))/8.0D0
+      gpsha(7) = (1.0D0 + pgauss_hexa8(igauss,1))*(1.0D0 + pgauss_hexa8(igauss,2))*(1.0D0 + pgauss_hexa8(igauss,3))/8.0D0
+      gpsha(8) = (1.0D0 - pgauss_hexa8(igauss,1))*(1.0D0 + pgauss_hexa8(igauss,2))*(1.0D0 + pgauss_hexa8(igauss,3))/8.0D0
       
   else if(pnode == 6) then
       
-      gpsha(1) = (1D0 - pgauss_prism6(igauss,1) - pgauss_prism6(igauss,2))*(1D0 - pgauss_prism6(igauss,3))/2.0D0
-      gpsha(2) = ( + pgauss_prism6(igauss,1) )                            *(1D0 - pgauss_prism6(igauss,3))/2.0D0
-      gpsha(3) = ( + pgauss_prism6(igauss,2) )                            *(1D0 - pgauss_prism6(igauss,3))/2.0D0
-      gpsha(4) = (1D0 - pgauss_prism6(igauss,1) - pgauss_prism6(igauss,2))*(1D0 + pgauss_prism6(igauss,3))/2.0D0
-      gpsha(5) = ( + pgauss_prism6(igauss,1) )                            *(1D0 + pgauss_prism6(igauss,3))/2.0D0
-      gpsha(6) = ( + pgauss_prism6(igauss,2) )                            *(1D0 + pgauss_prism6(igauss,3))/2.0D0
+      gpsha(1) = (1.0D0 - pgauss_prism6(igauss,1) - pgauss_prism6(igauss,2))*(1.0D0 - pgauss_prism6(igauss,3))/2.0D0
+      gpsha(2) = ( + pgauss_prism6(igauss,1) )                              *(1.0D0 - pgauss_prism6(igauss,3))/2.0D0
+      gpsha(3) = ( + pgauss_prism6(igauss,2) )                              *(1.0D0 - pgauss_prism6(igauss,3))/2.0D0
+      gpsha(4) = (1.0D0 - pgauss_prism6(igauss,1) - pgauss_prism6(igauss,2))*(1.0D0 + pgauss_prism6(igauss,3))/2.0D0
+      gpsha(5) = ( + pgauss_prism6(igauss,1) )                              *(1.0D0 + pgauss_prism6(igauss,3))/2.0D0
+      gpsha(6) = ( + pgauss_prism6(igauss,2) )                              *(1.0D0 + pgauss_prism6(igauss,3))/2.0D0
             
   end if
   
