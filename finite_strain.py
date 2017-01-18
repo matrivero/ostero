@@ -33,6 +33,7 @@ if (len(sys.argv) < 3):
 
 damage_flag = 'OFF'
 f_vs_d_flag = 'OFF'
+eps_flag    = 'OFF'
 #READ INPUT FILE
 input_file = open(sys.argv[1],'r')
 case_name = 'NONAME' #default
@@ -65,6 +66,10 @@ for line in input_file:
 		line = line.split()
 		physical_f_vs_d = line[1]
 		f_vs_d_flag = 'ON'
+	elif line.startswith('newton_raphson_tol'):
+		line = line.split()
+		eps  = eval(line[1])
+		eps_flag = 'ON'
 input_file.close()
 
 try:
@@ -446,10 +451,11 @@ for z in range(int(total_steps)):
 	print ' '
 	print 'Solving time step',z+1,'...'
 	it_counter = 0
-	if geom_treatment == 'LINEAR':
-	    eps = 0.0001 #tolerance for residue norm
-	else: #if geom_treatment == 'NONLINEAR'
-	    eps = 0.0001 #tolerance for displacement norm
+	if  eps_flag == 'OFF':
+	    if geom_treatment == 'LINEAR':
+		eps = 0.0001 #tolerance for residue norm
+	    else: #if geom_treatment == 'NONLINEAR'
+		eps = 0.0001 #tolerance for displacement norm
 	norm_generic = 100*eps
 
 	#NEWMARK - ESTIMATE NEXT SOLUTION (ASSUMING A NULL ACCELERATION FOR THE FIRST TIME STEP)

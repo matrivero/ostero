@@ -1,6 +1,6 @@
 length  = 1;
 Bdiameter= length/3;
-Sdiameter= Bdiameter/2;
+Sdiameter= Bdiameter*0.6;
 Slength =  length/3;
 ND=10;
 NL=10;
