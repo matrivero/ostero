@@ -486,12 +486,17 @@ deriv = 0D0
 
 do e = 1,num_elements_bulk
 
-  if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
+   if (elements_bulk(e,2) == 2) then !TRIANGLE ELEMENT
       
        pnode = 3
        ngauss = 3
 
-  else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
+   else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
+       
+       pnode = 4
+       ngauss = 4
+       
+   else if (elements_bulk(e,2) == 4) then !TETRA ELEMENT
        
        pnode = 4
        ngauss = 4
@@ -536,12 +541,18 @@ do e = 1,num_elements_bulk
        call m33inv(jac, inv_jac, det_jac_tmp, inv_flag)
     
     end if   
-
+ 
     if (.not. inv_flag) then
       write(*,*) "Jacobian Matrix is not invertible... bye!"
       stop
     end if
     det_jac(e,i) = abs(det_jac_tmp)
+    
+    if(det_jac(e,i) < 0.0D0) then
+       write(*,*) "Negative Jacobian determinant for element", e ,"... bye!"
+      stop
+    end if
+    
     do j = 1,pnode
       do p = 1,ndime
         do n = 1,ndime
@@ -1134,7 +1145,8 @@ real*8, dimension(6,6)  :: C
 real*8, dimension(6,24) :: TMP
 real*8, dimension(8) :: gpsha
 real*8, dimension(6) :: strain_elem
-real*8 :: gpvol, xmean
+real*8, dimension(8) :: weight_local
+real*8 :: gpvol, xmean, lamda, mu
 integer*4 :: e, i, j, k, l, m, d, d1, d2
 integer*4 :: anode, bnode, adofn, bdofn
 integer*4 :: pnode, ngauss, inode, ivoigt, ipoin
@@ -1164,22 +1176,32 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
       
        pnode = 3
        ngauss = 3
+       weight_local = weight_tria3
 
   else if (elements_bulk(e,2) == 3) then !QUAD ELEMENT
        
        pnode = 4
        ngauss = 4
-    
+       weight_local = weight_quad4
+       
+  else if (elements_bulk(e,2) == 4) then !TETRA ELEMENT
+       
+       pnode = 4
+       ngauss = 4  
+       weight_local = weight_tetra4
+       
   else if (elements_bulk(e,2) == 5) then !8N-HEXA ELEMENT
        
        pnode  = 8
        ngauss = 8
+       weight_local = weight_hexa8
        
   else if (elements_bulk(e,2) == 6) then !6N-PRISM ELEMENT
        
        pnode  = 6
        ngauss = 6
-         
+       weight_local = weight_prism6
+       
   end if
   
   do i = 1,pnode
@@ -1221,23 +1243,26 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
      end if 
  else if(ndime == 3) then
  
-    C(1,1) = 1.0D0 
-    C(1,2) = -poisson(e)
-    C(1,3) = -poisson(e)
+    lamda = (young(e)*poisson(e))/((1+poisson(e))*(1-2*poisson(e)))
+    mu    = young(e) / (2*(1+poisson(e)))
+
+    C(1,1) = lamda + 2*mu 
+    C(1,2) = lamda
+    C(1,3) = lamda
     C(1,4) = 0.0D0
     C(1,5) = 0.0D0
     C(1,6) = 0.0D0
     
-    C(2,1) = -poisson(e)  
-    C(2,2) = 1.0D0
-    C(2,3) = -poisson(e)
+    C(2,1) = lamda  
+    C(2,2) = lamda + 2*mu
+    C(2,3) = lamda
     C(2,4) = 0.0D0
     C(2,5) = 0.0D0
     C(2,6) = 0.0D0
     
-    C(3,1) = -poisson(e)  
-    C(3,2) = -poisson(e)
-    C(3,3) = 1.0D0
+    C(3,1) = lamda  
+    C(3,2) = lamda
+    C(3,3) = lamda + 2*mu
     C(3,4) = 0.0D0
     C(3,5) = 0.0D0
     C(3,6) = 0.0D0
@@ -1245,7 +1270,7 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
     C(4,1) = 0.0D0
     C(4,2) = 0.0D0
     C(4,3) = 0.0D0
-    C(4,4) = 2D0*(1.0D0+poisson(e))
+    C(4,4) = mu
     C(4,5) = 0.0D0
     C(4,6) = 0.0D0
     
@@ -1253,7 +1278,7 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
     C(5,2) = 0.0D0
     C(5,3) = 0.0D0
     C(5,4) = 0.0D0
-    C(5,5) = 2D0*(1.0D0+poisson(e))
+    C(5,5) = mu
     C(5,6) = 0.0D0
     
     C(6,1) = 0.0D0
@@ -1261,9 +1286,9 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
     C(6,3) = 0.0D0
     C(6,4) = 0.0D0
     C(6,5) = 0.0D0
-    C(6,6) = 2D0*(1.0D0+poisson(e))  
+    C(6,6) = mu  
     
-    C = C/young(e)
+    C = C
  
   end if
 
@@ -1328,7 +1353,8 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
       end do
     end do
 
-    gpvol = det_jac(e,i)*weight(i,pnode-2) 
+    gpvol = det_jac(e,i)*weight_local(i) 
+    
     if (.not. stress_calc_on) then
       !ELEMENTAL STIFFNESS MATRIX
       do k = 1,(ndime*pnode)
@@ -1354,7 +1380,7 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
 
       !ELEMENTAL RESIDUAL VECTOR (GRAVITY CONTRIBUTION)
       if (gravity_calc_on) then
-        gpvol = det_jac(e,i)*weight(i,pnode-2) 
+        gpvol = det_jac(e,i)*weight_local(i) 
         call shapefunc(pnode,i,gpsha)
         do inode = 1,pnode
           idofn = (inode-1)*ndime
@@ -1367,7 +1393,7 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
     end if
 
     if (stress_calc_on) then
-      gpvol = det_jac(e,i)*weight(i,pnode-2) 
+      gpvol = det_jac(e,i)*weight_local(i) 
       call shapefunc(pnode,i,gpsha)
       do ivoigt = 1,voight_number
         do inode = 1,pnode
@@ -1454,6 +1480,7 @@ real*8, dimension(3,3) :: inv_C
 real*8, dimension(8)   :: displ_ele
 real*8, dimension(3)   :: strain_ele
 real*8, dimension(3,8) :: B
+real*8, dimension(8)   :: weight_local
 
 real*8    :: r
 real*8    :: aux
@@ -1563,8 +1590,8 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
            sig_0(k) = sig_0(k) + C(k,m)*strain_ele(m)
         end do
      end do
-     sig_0 = sig_0 + sig_0 * det_jac(e,i)*weight(i,pnode-2)
-     vol = vol + det_jac(e,i)*weight(i,pnode-2)
+     sig_0 = sig_0 + sig_0 * det_jac(e,i)*weight_local(i)
+     vol = vol + det_jac(e,i)*weight_local(i)
   end do
   
   sig_0 = sig_0 / vol

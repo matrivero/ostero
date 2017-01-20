@@ -1,0 +1,12 @@
+$VolumeDefinition
+# Name   Young Modulus  Poisson Modulus   Density
+  BULK   10.0E6         0.25              1000.0 
+$BoundaryConditionsDisplacement
+"P000" 1 1 1  0.0     0.0  0.0  1 2
+"P100" 1 1 1  -0.005   0.0  0.0  1 2
+"P110" 1 0 1  -0.005   0.0  0.0  1 2
+"P010" 1 0 1  0.0     0.0  0.0  1 2
+"P001" 1 1 0  0.0     0.0  0.0  1 2
+"P101" 1 1 0  -0.005   0.0  0.0  1 2
+"P111" 1 0 0  -0.005   0.0  0.0  1 2
+"P011" 1 0 0  0.0     0.0  0.0  1 2

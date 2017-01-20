@@ -1,0 +1,8 @@
+mesh_path patch3d.msh
+geometrical_treatment LINEAR
+constitutive_model ISOL
+sub_model PLANE_STRESS
+time_step_size 10.00
+total_steps 2
+calc_f_vs_d "BOTTOM"
+newton_raphson_tol 0.01
