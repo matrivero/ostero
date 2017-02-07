@@ -1,8 +1,8 @@
 # Description #
 
-Ostero is a finite element code that solves implicitly the equilibrium equation which governs the linear and non-linear mechanics of a deformable body subjected to large deformations. In other words, Ostero allows to determine the response of a deformable solid body to an applied load. 
+Ostero is a finite element code that solves implicitly the equilibrium equation which governs the linear and non-linear mechanics of a deformable body subjected to external boundary conditions. In other words, Ostero allows to determine the response of a deformable solid body to an applied load considering transient or quasi-static scenarios under linear or nonlinear geometrical deformation assumption. 
 
-Ostero intends to be a didactic code, and its main objective is to allow the user to understand the very basic structure of a non-linear mechanics finite elements code and to provide a framework for the beta testing of different models (elastic material models, contact models, fracture, plasticity, etc.). 
+Ostero intends to be a didactic code, and its main objective is to allow the user to understand the very basic structure of a non-linear mechanics finite elements code and to provide a framework for the beta testing of different models (elastic material models, contact models, damage, plasticity, etc.). 
 
 Ostero is based on the solidz module of the [Alya code](http://www.bsc.es/alya) and so far it can solve 2D problems using triangles or quadrilateral elements and an isolinear or neo-hookean material model.
 
@@ -39,24 +39,6 @@ Then, to execute the example you must do:
 
 ../../finite_strain.py input_file.dat boundary_file.dat
 ```
-
-The main program of Ostero is *finite_strain.py*, while the first argument is the input file and the second is the boundary file. In the input file you must specify:
-
-* the mesh path (keyword *$mesh_path*)
-
-* the constitutive model (keyword *$constitutive_model*, options *ISOL*, *BELY*, *ZIEN* and *LAUR*)
-
-* the time step (keyword *$time_step_size*)
-
-* the total number of time steps (keyword *$total_steps*)
-
-In the boundary file there are only three keywords:
-
-* the volume definition and its mechanical properties: young modulus and poisson parameter (keyword *$VolumeDefinition*)
-
-* displacement boundary conditions (Dirichlet) (keyword *$BoundaryConditionsDisplacement*)
-
-* pressure boundary conditions (Neumann) (keyword *$BoundaryConditionsPressure*)
 
 # Some results obtained with Ostero... #
 
