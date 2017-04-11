@@ -453,9 +453,9 @@ for z in range(int(total_steps)):
 	it_counter = 0
 	if  eps_flag == 'OFF':
 	    if geom_treatment == 'LINEAR':
-		eps = 0.0001 #tolerance for residue norm
+		eps = 0.0000001 #tolerance for residue norm
 	    else: #if geom_treatment == 'NONLINEAR'
-		eps = 0.0001 #tolerance for displacement norm
+		eps = 0.0000001 #tolerance for displacement norm
 	norm_generic = 100*eps
 
 	#NEWMARK - ESTIMATE NEXT SOLUTION (ASSUMING A NULL ACCELERATION FOR THE FIRST TIME STEP)
@@ -604,12 +604,12 @@ for z in range(int(total_steps)):
 		
 		#CALL SOLVER
 		ddispl = np.linalg.solve(k_tot,r_tot)
+                norm_residue = np.linalg.norm(r_tot)
 		external.mod_fortran.dealloca_global_matrices()
 
 		displ_ant = displ
 		displ = displ_ant + ddispl
 		norm_ddispl = np.linalg.norm(displ-displ_ant)/np.linalg.norm(displ)
-                norm_residue = np.linalg.norm(r_tot)
 		it_counter = it_counter + 1
 		print "Newton-Raphson iteration:",it_counter
 		print "Displacement increment error:",norm_ddispl
