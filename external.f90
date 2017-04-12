@@ -73,8 +73,6 @@ integer*4 :: voight_number
 
 character(len=4) :: model
 character(len=12) :: submodel
-real*8, dimension(6,24) :: b_test
-real*8, dimension(24,24) :: k_elem_test
 
 contains
 
@@ -1451,9 +1449,6 @@ do e = 1,num_elements_bulk !ELEMENTS LOOP
   end if
 
 end do !end do elements
-
-b_test = B
-k_elem_test = k_elem
 
 if (stress_calc_on) then
   do ipoin = 1,num_nodes

@@ -518,8 +518,6 @@ for z in range(int(total_steps)):
 		k_tot = external.mod_fortran.k_tot
 		m_tot = external.mod_fortran.m_tot
 		r_tot = external.mod_fortran.r_tot
-                b_test = external.mod_fortran.b_test
-                k_elem_test = external.mod_fortran.k_elem_test
                 
                 if ndime == 2:
 			#IMPOSE PRESSURE BOUNDARY CONDITIONS (3d Next summer)
