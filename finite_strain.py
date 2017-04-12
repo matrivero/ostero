@@ -615,10 +615,11 @@ for z in range(int(total_steps)):
 		print "Residue norm:",norm_residue
 
 		if geom_treatment == 'LINEAR':
-		    norm_generic = norm_residue
+		    norm_generic = norm_ddispl
+		    #norm_generic = norm_residue
 		else: #if geom_treatment == 'NONLINEAR'
-		    #norm_generic = norm_ddispl
-		    norm_generic = norm_residue
+		    norm_generic = norm_ddispl
+		    #norm_generic = norm_residue
 		   
 		#con los desplazamientos obtenidos podemos calcular el damage
 		if damage_flag != 'OFF' and geom_treatment == 'LINEAR':
