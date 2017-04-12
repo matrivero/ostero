@@ -382,8 +382,6 @@ elif ndime == 3:
 	deriv_bound[0] = -0.5
 	deriv_bound[1] = 0.5
 
-
-    
 displ = np.zeros((num_nodes*ndime))
 veloc = np.zeros((num_nodes*ndime)) #---> initial condition for velocity = 0
 accel = np.zeros((num_nodes*ndime)) #---> only initializing the acceleration array
@@ -430,7 +428,6 @@ if (gravity_present):
 	external.mod_fortran.grav_magnitude = eval(grav_magnitude)
 	external.mod_fortran.grav_direction = grav_direction
 
-
 ###################################################################JACOBIAN AND DERIVATIVES CALCULATION###################################################################
 external.mod_fortran.deriv_and_detjac_calc()
 ##########################################################################################################################################################################
@@ -464,7 +461,6 @@ for z in range(int(total_steps)):
 		displ = displ_mono
 		veloc_mono = veloc + (1-gamma_newmark)*dt*accel
 		
-
 	#IMPOSE DISPLACEMENTS
 	for bc in boundary_condition_disp:
 		for eg in element_groups[physical_names[bc][1]]:     
@@ -502,7 +498,68 @@ for z in range(int(total_steps)):
 						for n in range(nvert[gmshkind[eg[1]]]):
 							for d in range(ndime):
 								displ[(eg[5+n]-1)*ndime+d] = (((boundary_condition_disp[bc][(ndime*2+2)*ii+ndime+d]-bc_ant[d])/int(diff_tstep))*(z+1-step_ant)+bc_ant[d])
-      
+
+	#COMPUTE PRESSURE BOUNDARY CONDITIONS (3D next summer)
+	if ndime == 2:
+		press = np.zeros((num_nodes*ndime))  
+		for bc in boundary_condition_press:
+			cont = 0
+			for eg in element_groups[physical_names[bc][1]]:
+				#(eg[5]-1)*2 component X of the first node
+				#(eg[5]-1)*2+1 component Y of the first node
+				#(eg[6]-1)*2 component X of the second node
+				#(eg[6]-1)*2+1 component Y of the second node
+				coord_nodes = np.zeros((2,2))
+				coord_nodes[0][0] = nodes[eg[5]-1][1] 
+				coord_nodes[0][1] = nodes[eg[5]-1][2] 
+				coord_nodes[1][0] = nodes[eg[6]-1][1] 
+				coord_nodes[1][1] = nodes[eg[6]-1][2]
+				tangent_x = coord_nodes[0][0]*deriv_bound[0] + coord_nodes[1][0]*deriv_bound[1]
+				tangent_y = coord_nodes[0][1]*deriv_bound[0] + coord_nodes[1][1]*deriv_bound[1]
+				normal_x = tangent_y 
+				normal_y = -tangent_x
+				length_bound_elem = np.sqrt(tangent_x*tangent_x + tangent_y*tangent_y)
+				norm_normal = np.sqrt(normal_x*normal_x + normal_y*normal_y)
+				tangent_x = tangent_x/length_bound_elem
+				tangent_y = tangent_y/length_bound_elem
+				normal_x = normal_x/norm_normal
+				normal_y = normal_y/norm_normal
+				# CHECK NORMAL DIRECTION IF IT IS INWARDS (NOT OK) OR OUTWARDS (OK)
+				offset_elem_bulk = elements_bulk[0][0]
+				center_of_mass_x = 0
+				center_of_mass_y = 0
+				if elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][1] == 2: #TRIANGLE ELEMENT
+					pnode = 3
+				elif elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][1] == 3: #QUAD ELEMENT
+					pnode = 4
+				for node in range(pnode):
+					center_of_mass_x += nodes[elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][5+node] - 1][1]
+					center_of_mass_y += nodes[elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][5+node] - 1][2]
+				center_of_mass_x = center_of_mass_x/pnode
+				center_of_mass_y = center_of_mass_y/pnode
+				dot_prod = (center_of_mass_x - coord_nodes[0][0])*normal_x + (center_of_mass_y - coord_nodes[0][1])*normal_y 
+				if dot_prod > 0:
+					normal_x = -normal_x
+					normal_y = -normal_y	
+					tangent_x = -tangent_x
+					tangent_y = -tangent_y
+				cont += 1
+				#########################
+				tract = np.zeros((2))
+				tract[0] = normal_x * (boundary_condition_press[bc][0]/int(total_steps))*(z+1)
+				tract[1] = normal_y * (boundary_condition_press[bc][0]/int(total_steps))*(z+1)
+				r_elem = np.zeros((4))
+				for gauss_point in range(2):
+					for inode in range(2):
+						idofn = inode*2 -1
+						for idime in range(2):
+							idofn = idofn + 1
+							r_elem[idofn] = r_elem[idofn] + \
+									tract[idime]*weight_bounda[gauss_point]*length_bound_elem*shape_bound[inode][gauss_point]
+				for inode in range(2):
+					press[(eg[5+inode]-1)*2] = press[(eg[5+inode]-1)*2] + r_elem[(2*inode)] 
+					press[(eg[5+inode]-1)*2+1] = press[(eg[5+inode]-1)*2+1] + r_elem[(2*inode)+1]
+
 	#START N-R ITERATIONS
 	while (norm_generic > eps):
 	        
@@ -519,65 +576,6 @@ for z in range(int(total_steps)):
 		m_tot = external.mod_fortran.m_tot
 		r_tot = external.mod_fortran.r_tot
                 
-                if ndime == 2:
-			#IMPOSE PRESSURE BOUNDARY CONDITIONS (3d Next summer)
-			for bc in boundary_condition_press:
-				cont = 0
-				for eg in element_groups[physical_names[bc][1]]:
-					#(eg[5]-1)*2 component X of the first node
-					#(eg[5]-1)*2+1 component Y of the first node
-					#(eg[6]-1)*2 component X of the second node
-					#(eg[6]-1)*2+1 component Y of the second node
-					coord_nodes = np.zeros((2,2))
-					coord_nodes[0][0] = nodes[eg[5]-1][1] 
-					coord_nodes[0][1] = nodes[eg[5]-1][2] 
-					coord_nodes[1][0] = nodes[eg[6]-1][1] 
-					coord_nodes[1][1] = nodes[eg[6]-1][2]
-					tangent_x = coord_nodes[0][0]*deriv_bound[0] + coord_nodes[1][0]*deriv_bound[1]
-					tangent_y = coord_nodes[0][1]*deriv_bound[0] + coord_nodes[1][1]*deriv_bound[1]
-					normal_x = tangent_y 
-					normal_y = -tangent_x
-					length_bound_elem = np.sqrt(tangent_x*tangent_x + tangent_y*tangent_y)
-					norm_normal = np.sqrt(normal_x*normal_x + normal_y*normal_y)
-					tangent_x = tangent_x/length_bound_elem
-					tangent_y = tangent_y/length_bound_elem
-					normal_x = normal_x/norm_normal
-					normal_y = normal_y/norm_normal
-					# CHECK NORMAL DIRECTION IF IT IS INWARDS (NOT OK) OR OUTWARDS (OK)
-					offset_elem_bulk = elements_bulk[0][0]
-					center_of_mass_x = 0
-					center_of_mass_y = 0
-					if elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][1] == 2: #TRIANGLE ELEMENT
-						pnode = 3
-					elif elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][1] == 3: #QUAD ELEMENT
-						pnode = 4
-					for node in range(pnode):
-						center_of_mass_x += nodes[elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][5+node] - 1][1]
-						center_of_mass_y += nodes[elements_bulk[link_boundary_volume_elem[bc][cont] - offset_elem_bulk][5+node] - 1][2]
-					center_of_mass_x = center_of_mass_x/pnode
-					center_of_mass_y = center_of_mass_y/pnode
-					dot_prod = (center_of_mass_x - coord_nodes[0][0])*normal_x + (center_of_mass_y - coord_nodes[0][1])*normal_y 
-					if dot_prod > 0:
-						normal_x = -normal_x
-						normal_y = -normal_y	
-						tangent_x = -tangent_x
-						tangent_y = -tangent_y
-					cont += 1
-					#########################
-					tract = np.zeros((2))
-					tract[0] = normal_x * (boundary_condition_press[bc][0]/int(total_steps))*(z+1)
-					tract[1] = normal_y * (boundary_condition_press[bc][0]/int(total_steps))*(z+1)
-					r_elem = np.zeros((4))
-					for gauss_point in range(2):
-						for inode in range(2):
-							idofn = inode*2 -1
-							for idime in range(2):
-								idofn = idofn + 1
-								r_elem[idofn] = r_elem[idofn] + tract[idime]*weight_bounda[gauss_point]*length_bound_elem*shape_bound[inode][gauss_point]
-					for inode in range(2):
-						r_tot[(eg[5+inode]-1)*2] = r_tot[(eg[5+inode]-1)*2] + r_elem[(2*inode)] 
-						r_tot[(eg[5+inode]-1)*2+1] = r_tot[(eg[5+inode]-1)*2+1] + r_elem[(2*inode)+1]
-
 		#NEWMARK STUFF
 		if transient_problem:
 			#INERTIAL CONTRIBUTION TO JACOBIAN
@@ -599,6 +597,9 @@ for z in range(int(total_steps)):
 								k_tot[(eg[5+n]-1)*ndime+d][nn] = 0.0
 							    k_tot[(eg[5+n]-1)*ndime+d][(eg[5+n]-1)*ndime+d] = 1.0
 							    r_tot[(eg[5+n]-1)*ndime+d] = 0.0
+	
+		#IMPOSE PRESSURE BOUNDARY CONDITIONS (3d Next summer)
+		r_tot[:] = r_tot[:] + press[:]
 		
 		#CALL SOLVER
 		ddispl = np.linalg.solve(k_tot,r_tot)
@@ -616,7 +617,8 @@ for z in range(int(total_steps)):
 		if geom_treatment == 'LINEAR':
 		    norm_generic = norm_residue
 		else: #if geom_treatment == 'NONLINEAR'
-		    norm_generic = norm_ddispl
+		    #norm_generic = norm_ddispl
+		    norm_generic = norm_residue
 		   
 		#con los desplazamientos obtenidos podemos calcular el damage
 		if damage_flag != 'OFF' and geom_treatment == 'LINEAR':
@@ -642,7 +644,6 @@ for z in range(int(total_steps)):
 	strain = external.mod_fortran.strain
 	stress = external.mod_fortran.stress
 	
-
 	if f_vs_d_flag == 'ON' and geom_treatment == 'LINEAR':
 	    external.mod_fortran.stress_calc_on = False
 	    external.mod_fortran.assembly_linear()
