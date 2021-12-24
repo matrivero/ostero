@@ -28,7 +28,7 @@ import utils
 
 #PRINT USAGE IF THERE ARE LESS THAN TWO ARGUMENTS
 if (len(sys.argv) < 3):
-	print ("Usage ./finite_strain.py input_file boundary_file")
+	print("Usage ./finite_strain.py input_file boundary_file")
 	sys.exit()
 
 damage_flag = 'OFF'
@@ -75,25 +75,25 @@ input_file.close()
 try:
 	mesh_path
 except NameError:
-	print ("You must define the mesh path... bye!")
+	print("You must define the mesh path... bye!")
 	sys.exit()
 
 try:
 	geom_treatment
 except NameError:
-	print ("You must define the geometrical treatment: LINEAR or NONLINEAR... bye!")
+	print("You must define the geometrical treatment: LINEAR or NONLINEAR... bye!")
 	sys.exit()
 
 try:
 	time_step_size
 except NameError:
-	print ("You must define the time step size... bye!")
+	print("You must define the time step size... bye!")
 	sys.exit()
 
 try:
 	total_steps
 except NameError:
-	print ("You must define the total number of calculation steps... bye!")
+	print("You must define the total number of calculation steps... bye!")
 	sys.exit()
 	
 if f_vs_d_flag == 'ON':
@@ -102,7 +102,7 @@ if f_vs_d_flag == 'ON':
 	    f = open('f_vs_d_'+physical_f_vs_d+'.dat','w')
 	    f.close()
 	except NameError:
-	    print ("You must give the name of the Physical Entity where you want to calculate the curve f vs d... bye!")
+	    print("You must give the name of the Physical Entity where you want to calculate the curve f vs d... bye!")
 	    sys.exit()
 
 #READ MESH FILE
@@ -151,34 +151,34 @@ if geom_treatment == 'NONLINEAR':
 	try:
 		model
 	except NameError:
-		print ("Select a valid constitutive model for NONLINEAR geometrical treatment: ISOL, BELY, ZIEN or LAUR... bye!")
+		print("Select a valid constitutive model for NONLINEAR geometrical treatment: ISOL, BELY, ZIEN or LAUR... bye!")
 		sys.exit()
 	if model == 'ISOL':
 		try:
 			submodel
 		except NameError:
-			print ("Select a valid submodel for NONLINEAR geometrical treatment, ISOLIN model: PLANE_STRESS or PLANE_STRAIN... bye!")
+			print("Select a valid submodel for NONLINEAR geometrical treatment, ISOLIN model: PLANE_STRESS or PLANE_STRAIN... bye!")
 			sys.exit()
 		if submodel == 'PLANE_STRESS':
 			header_output = case_name+'_NONLINEAR_ISOLIN_PLANE_STRESS'
-			print ("ISOLINEAL MATERIAL MODEL / NONLINEAR FORMULATION / PLANE STRESS APPROXIMATION")
+			print("ISOLINEAL MATERIAL MODEL / NONLINEAR FORMULATION / PLANE STRESS APPROXIMATION")
 		elif submodel == 'PLANE_STRAIN':
 			header_output = case_name+'_NONLINEAR_ISOLIN_PLANE_STRAIN'
-			print ("ISOLINEAL MATERIAL MODEL / NONLINEAR FORMULATION / PLANE STRAIN APPROXIMATION")
+			print("ISOLINEAL MATERIAL MODEL / NONLINEAR FORMULATION / PLANE STRAIN APPROXIMATION")
 		else:
-			print ("You need a submodel for ISOL model: PLANE_STRESS or PLANE_STRAIN... bye!")
+			print("You need a submodel for ISOL model: PLANE_STRESS or PLANE_STRAIN... bye!")
 			sys.exit()
 	elif model == 'BELY':
 		header_output = case_name+'_NONLINEAR_BELYTSCHKO'
-		print ("BELYTSCHKO's BOOK / NEO-HOOKEAN MATERIAL MODEL")
+		print("BELYTSCHKO's BOOK / NEO-HOOKEAN MATERIAL MODEL")
 	elif model == 'ZIEN':
 		header_output = case_name+'_NONLINEAR_ZIENKIEWICZ'
-		print ("ZIENKIEWICZ's BOOK / NEO-HOOKEAN MATERIAL MODEL")
+		print("ZIENKIEWICZ's BOOK / NEO-HOOKEAN MATERIAL MODEL")
 	elif model == 'LAUR': 
 		header_output = case_name+'_NONLINEAR_LAURSEN'
-		print ("LAURSEN's BOOK / NEO-HOOKEAN MATERIAL MODEL")
+		print("LAURSEN's BOOK / NEO-HOOKEAN MATERIAL MODEL")
 	else:
-		print ("This model is not valid for NONLINEAR geometrical treatment... bye!")
+		print("This model is not valid for NONLINEAR geometrical treatment... bye!")
 		sys.exit()
 elif geom_treatment == 'LINEAR':
 	try:
@@ -189,20 +189,20 @@ elif geom_treatment == 'LINEAR':
 	try:                                                       
 		submodel
 	except NameError:
-		print ("Select a valid submodel for LINEAR geometrical treatment: PLANE_STRESS or PLANE_STRAIN... bye!")
+		print("Select a valid submodel for LINEAR geometrical treatment: PLANE_STRESS or PLANE_STRAIN... bye!")
 		sys.exit()
 	if submodel == 'PLANE_STRESS':
 		header_output = case_name+'_LINEAR_PLANE_STRESS'
-		print ("PLANE STRESS / LINEAR FORMULATION")
+		print("PLANE STRESS / LINEAR FORMULATION")
 	elif submodel == 'PLANE_STRAIN':
 		header_output = case_name+'_LINEAR_PLANE_STRAIN'
-		print ("PLANE STRAIN / LINEAR FORMULATION")
+		print("PLANE STRAIN / LINEAR FORMULATION")
 	else:
-		print ("Select a valid submodel for LINEAR geometrical treatment: PLANE_STRESS or PLANE_STRAIN... bye!")
+		print("Select a valid submodel for LINEAR geometrical treatment: PLANE_STRESS or PLANE_STRAIN... bye!")
 		sys.exit()
 		
 	if damage_flag != 'OFF':
-		print ("DAMAGE ACTIVATED :", damage_flag)
+		print("DAMAGE ACTIVATED :", damage_flag)
 
 #CHECK IF IS A 2D or 3D CASE
 flag = 0
@@ -214,7 +214,7 @@ for node in range(num_nodes-1):
 if ((flag == 1) or (flag == 2) or (flag == 4)):
         ndime    = 1
         numvoigt = 1
-        print ("1D cases: available soon")
+        print("1D cases: available soon")
         sys.exit()
 elif ((flag == 3) or (flag == 5) or (flag == 6)):
 	ndime    = 2
@@ -223,7 +223,7 @@ elif flag == 7:
 	ndime    = 3
         numvoigt = 6
         
-print ('DIMENSION :  ' + str(ndime))
+print('DIMENSION :  ' + str(ndime))
 
 #READ BOUNDARY FILE
 volume_conditions = defaultdict(list)
@@ -251,8 +251,8 @@ for line in boundary_file:
 			try:
 				(name, Y, nu, density) = line.split()
 			except:
-				print ("Despite density will only matters (and will be used) if Gravity is activated, I need the input in the Volume Definition")
-				print ("If Gravity is not activated, just add some random number for each material and re-run. Bye :(")
+				print("Despite density will only matters (and will be used) if Gravity is activated, I need the input in the Volume Definition")
+				print("If Gravity is not activated, just add some random number for each material and re-run. Bye :(")
 				sys.exit()
 			name = name.replace('"','')
 			volume_conditions[name].append(eval(Y))
@@ -439,14 +439,14 @@ external.mod_fortran.vmass_calc()
 it_counter_global = 0
 
 if transient_problem:
-	print ("This is a transient problem (taking into account the time derivative)...")
+	print("This is a transient problem (taking into account the time derivative)...")
 else:
-	print ("This is a quasi-static problem (neglecting the time derivative)...")
+	print("This is a quasi-static problem (neglecting the time derivative)...")
 
 for z in range(int(total_steps)):
 
-	print (' ')
-	print ('Solving time step',z+1,'...')
+	print(' ')
+	print('Solving time step',z+1,'...')
 	it_counter = 0
 	if  eps_flag == 'OFF':
 	    if geom_treatment == 'LINEAR':
@@ -610,9 +610,9 @@ for z in range(int(total_steps)):
 		displ = displ_ant + ddispl
 		norm_ddispl = np.linalg.norm(displ-displ_ant)/np.linalg.norm(displ)
 		it_counter = it_counter + 1
-		print ("Newton-Raphson iteration:",it_counter)
-		print ("Displacement increment error:",norm_ddispl)
-		print ("Residue norm:",norm_residue)
+		print("Newton-Raphson iteration:",it_counter)
+		print("Displacement increment error:",norm_ddispl)
+		print("Residue norm:",norm_residue)
 
 		if geom_treatment == 'LINEAR':
 		    norm_generic = norm_ddispl
@@ -665,4 +665,4 @@ for z in range(int(total_steps)):
 
 external.mod_fortran.dealloca_init()
 
-print ("\nEXECUTION FINISHED SUCCESSFULLY!\n")
+print("\nEXECUTION FINISHED SUCCESSFULLY!\n")
