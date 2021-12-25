@@ -1,1 +1,4 @@
 .idea
+*.vtk
+*.so
+__pycache__/
