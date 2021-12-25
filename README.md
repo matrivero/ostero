@@ -10,8 +10,6 @@ Ostero can read mesh files generated using [Gmsh](http://gmsh.info) and write ou
 
 Ostero is a mixture between Python and Fortran, and tries to take advantage of the main properties of each code. The parsing of the inputs parameters as well as boundaries conditions and other options is done using a main Python code. The solver part is coded in Fortran and included in the Python code as an external library. 
 
-You can find Ostero's users guide [here](https://bitbucket.org/matrivero/ostero/downloads).
-
 # Usage #
 
 In order to execute Ostero you only need a Python interpreter and the F2PY package, which is a Fortran to Python interface generator. Since 2007, F2PY is part of [Numpy](http://docs.scipy.org/doc/numpy-dev/f2py).
@@ -59,5 +57,3 @@ Ostero is licensed under [GNU GPLv3](http://www.gnu.org/copyleft/gpl.html)
 Ostero comes with ABSOLUTELY NO WARRANTY. 
 
 Ostero is free software, and you are welcome to redistribute it under certain conditions.
-
-**If you have any doubt, problem or suggestion please don't hesitate to contact me: matias.rivero(at)bsc.es **
