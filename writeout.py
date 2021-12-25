@@ -58,7 +58,7 @@ def writeoutput(header,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,s
 	for i in range(num_elements_bulk):
 		vtkfile_ini.write(str(nvert[gmshkind[elements_bulk[i][1]]]))
 		vtkfile_ini.write(' ')
-	        for n in range(nvert[gmshkind[elements_bulk[i][1]]]):
+		for n in range(nvert[gmshkind[elements_bulk[i][1]]]):
 			vtkfile_ini.write(str(int(elements_bulk[i][5+n])-1))
 			vtkfile_ini.write(' ')
 		vtkfile_ini.write('\n')	
@@ -71,15 +71,13 @@ def writeoutput(header,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,s
 		vtkfile_ini.write(str(vtkkind[gmshkind[elements_bulk[i][1]]])+'\n')
 		
 	if ndime == 2:
-	    
-	        strain_names=['EPSXX','EPSYY','EPSXY']
-	        stress_names=['SIGXX','SIGYY','SIGXY']
+		strain_names=['EPSXX','EPSYY','EPSXY']
+		stress_names=['SIGXX','SIGYY','SIGXY']
 
 	elif ndime == 3:
-	        
-	        strain_names=['EPSXX','EPSYY','EPSZZ','EPSYZ','EPSXY','EPSXZ']
-	        stress_names=['SIGXX','SIGYY','SIGZZ','SIGYZ','SIGXY','SIGXZ']
-	        
+		strain_names=['EPSXX','EPSYY','EPSZZ','EPSYZ','EPSXY','EPSXZ']
+		stress_names=['SIGXX','SIGYY','SIGZZ','SIGYZ','SIGXY','SIGXZ']
+
 	vtkfile_ini.write('POINT_DATA')
 	vtkfile_ini.write(' ')
 	vtkfile_ini.write(str(num_nodes))
@@ -100,7 +98,7 @@ def writeoutput(header,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,s
 		vtkfile_ini.write('\n')	
 	
 	for voigt_index in range(len(strain_names)):
-	    
+
 		vtkfile_ini.write('SCALARS')
 		vtkfile_ini.write(' ')
 		vtkfile_ini.write(strain_names[voigt_index])
