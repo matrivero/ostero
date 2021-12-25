@@ -52,7 +52,7 @@ for line in input_file:
 		line = line.split()
 		model = line[1]
 		if 'PLASTIC_DAMAGE' in line:
-		    damage_flag = 'PLASTIC_DAMAGE'
+			damage_flag = 'PLASTIC_DAMAGE'
 	elif line.startswith('sub_model'):
 		line = line.split()
 		submodel = line[1]
@@ -207,21 +207,21 @@ elif geom_treatment == 'LINEAR':
 #CHECK IF IS A 2D or 3D CASE
 flag = 0
 for node in range(num_nodes-1):
-     for d in range(3):
-	 if ((nodes[node+1][d+1]-nodes[node][d+1]) > 0.01):
-	    flag = flag | (1<<d)
+	for d in range(3):
+		if ((nodes[node+1][d+1]-nodes[node][d+1]) > 0.01):
+			flag = flag | (1<<d)
 
 if ((flag == 1) or (flag == 2) or (flag == 4)):
-        ndime    = 1
-        numvoigt = 1
-        print("1D cases: available soon")
-        sys.exit()
+	ndime    = 1
+	numvoigt = 1
+	print("1D cases: available soon")
+	sys.exit()
 elif ((flag == 3) or (flag == 5) or (flag == 6)):
 	ndime    = 2
 	numvoigt = 3
 elif flag == 7:
 	ndime    = 3
-        numvoigt = 6
+	numvoigt = 6
         
 print('DIMENSION :  ' + str(ndime))
 
@@ -260,7 +260,7 @@ for line in boundary_file:
 			volume_conditions[name].append(eval(density))
 		elif readmode == 2: #DISPLACEMENT BOUNDARY DEFINITIONS
 			if line.startswith('#') or line.startswith('!'): continue
-		        if ndime == 2:
+			if ndime == 2:
 				(name, fix_x, fix_y, dx, dy, start, end) = line.split()
 				name = name.replace('"','')
 				boundary_condition_disp[name].append(bool(eval(fix_x)))
@@ -333,8 +333,8 @@ for vo in volume_conditions:
 #elements_bulk varia en cada elemento y se nos crea un array estructurado
 aux = np.zeros((len(elements_bulk),max_len))
 for row in range(len(elements_bulk)):
-    for col in range(len(elements_bulk[row])):
-	aux[row,col] = elements_bulk[row][col]
+	for col in range(len(elements_bulk[row])):
+		aux[row,col] = elements_bulk[row][col]
 elements_bulk = aux
 
 elements_bulk = np.array(elements_bulk)
@@ -448,11 +448,11 @@ for z in range(int(total_steps)):
 	print(' ')
 	print('Solving time step',z+1,'...')
 	it_counter = 0
-	if  eps_flag == 'OFF':
-	    if geom_treatment == 'LINEAR':
-		eps = 0.0000001 #tolerance for residue norm
-	    else: #if geom_treatment == 'NONLINEAR'
-		eps = 0.0000001 #tolerance for displacement norm
+	if eps_flag == 'OFF':
+		if geom_treatment == 'LINEAR':
+			eps = 0.0000001 #tolerance for residue norm
+		else: #if geom_treatment == 'NONLINEAR'
+			eps = 0.0000001 #tolerance for displacement norm
 	norm_generic = 100*eps
 
 	#NEWMARK - ESTIMATE NEXT SOLUTION (ASSUMING A NULL ACCELERATION FOR THE FIRST TIME STEP)
@@ -492,7 +492,7 @@ for z in range(int(total_steps)):
 							bc_ant = np.zeros((ndime))
 							step_ant = 0
 						else:   
-						        for d in range(ndime):
+							for d in range(ndime):
 								bc_ant[d] = boundary_condition_disp[bc][(ndime*2+2)*(ii-1)+ndime+d]
 								step_ant  = boundary_condition_disp[bc][(ndime*2+2)*(ii-1)+2*ndime+1]
 						for n in range(nvert[gmshkind[eg[1]]]):
@@ -591,19 +591,19 @@ for z in range(int(total_steps)):
 				for ii in range(len(boundary_condition_disp[bc])/(ndime*2+2)):
 					if (boundary_condition_disp[bc][(ndime*2+2)*ii+2*ndime] <= (z+1) <= boundary_condition_disp[bc][6*ii+2*ndime+1]):
 						for n in range(nvert[gmshkind[eg[1]]]):
-						    for d in range(ndime):
-							if (boundary_condition_disp[bc][d]):
-							    for nn in range(num_nodes*ndime):
-								k_tot[(eg[5+n]-1)*ndime+d][nn] = 0.0
-							    k_tot[(eg[5+n]-1)*ndime+d][(eg[5+n]-1)*ndime+d] = 1.0
-							    r_tot[(eg[5+n]-1)*ndime+d] = 0.0
+							for d in range(ndime):
+								if (boundary_condition_disp[bc][d]):
+									for nn in range(num_nodes*ndime):
+										k_tot[(eg[5+n]-1)*ndime+d][nn] = 0.0
+									k_tot[(eg[5+n]-1)*ndime+d][(eg[5+n]-1)*ndime+d] = 1.0
+									r_tot[(eg[5+n]-1)*ndime+d] = 0.0
 	
 		#IMPOSE PRESSURE BOUNDARY CONDITIONS (3d Next summer)
 		r_tot[:] = r_tot[:] + press[:]
 		
 		#CALL SOLVER
 		ddispl = np.linalg.solve(k_tot,r_tot)
-                norm_residue = np.linalg.norm(r_tot)
+		norm_residue = np.linalg.norm(r_tot)
 		external.mod_fortran.dealloca_global_matrices()
 
 		displ_ant = displ
@@ -615,26 +615,26 @@ for z in range(int(total_steps)):
 		print("Residue norm:",norm_residue)
 
 		if geom_treatment == 'LINEAR':
-		    norm_generic = norm_ddispl
-		    #norm_generic = norm_residue
+			norm_generic = norm_ddispl
+			#norm_generic = norm_residue
 		else: #if geom_treatment == 'NONLINEAR'
-		    norm_generic = norm_ddispl
-		    #norm_generic = norm_residue
-		   
+			norm_generic = norm_ddispl
+			#norm_generic = norm_residue
+
 		#con los desplazamientos obtenidos podemos calcular el damage
 		if damage_flag != 'OFF' and geom_treatment == 'LINEAR':
-		    external.mod_fortran.displ = displ
-		    external.mod_fortran.calculate_damage()
+			external.mod_fortran.displ = displ
+			external.mod_fortran.calculate_damage()
 
 		it_counter_global = it_counter_global + 1
         
-        if damage_flag != 'OFF':
-	    tau = external.mod_fortran.tau
-	    for e in range(num_elements_bulk):
-		if tau_history[e] < tau[e]:
-		    tau_history[e] = tau[e]
-            external.mod_fortran.tau_history = tau_history
-            damage = external.mod_fortran.damage
+		if damage_flag != 'OFF':
+			tau = external.mod_fortran.tau
+			for e in range(num_elements_bulk):
+				if tau_history[e] < tau[e]:
+					tau_history[e] = tau[e]
+			external.mod_fortran.tau_history = tau_history
+			damage = external.mod_fortran.damage
 
 	external.mod_fortran.displ = displ
 	external.mod_fortran.stress_calc_on = True
@@ -646,18 +646,18 @@ for z in range(int(total_steps)):
 	stress = external.mod_fortran.stress
 	
 	if f_vs_d_flag == 'ON' and geom_treatment == 'LINEAR':
-	    external.mod_fortran.stress_calc_on = False
-	    external.mod_fortran.assembly_linear()
-	    k_tot = external.mod_fortran.k_tot
-	    force = np.zeros((num_nodes*ndime))
-	    for i in range(num_nodes*ndime):
-		for j in range(num_nodes*ndime):
-		    force[i] += k_tot[i][j] * displ[j]
-	    [un,ut,fn,ft] = utils.calc_force_and_disp(physical_f_vs_d,element_groups,physical_names,nodes,displ,force)
-	    f = open('f_vs_d_'+physical_f_vs_d+'.dat','a')
-	    f.write(str(un)+" "+str(ut)+" "+str(fn)+" "+str(ft))
-	    f.write("\n")
-	    f.close()
+		external.mod_fortran.stress_calc_on = False
+		external.mod_fortran.assembly_linear()
+		k_tot = external.mod_fortran.k_tot
+		force = np.zeros((num_nodes*ndime))
+		for i in range(num_nodes*ndime):
+			for j in range(num_nodes*ndime):
+				force[i] += k_tot[i][j] * displ[j]
+		[un,ut,fn,ft] = utils.calc_force_and_disp(physical_f_vs_d,element_groups,physical_names,nodes,displ,force)
+		f = open('f_vs_d_'+physical_f_vs_d+'.dat','a')
+		f.write(str(un)+" "+str(ut)+" "+str(fn)+" "+str(ft))
+		f.write("\n")
+		f.close()
 	
 	external.mod_fortran.dealloca_global_matrices()
 	writeout.writeoutput(header_output,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,strain,stress,damage,tau,tau_history,force,ndime)
