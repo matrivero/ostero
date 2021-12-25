@@ -465,7 +465,7 @@ for z in range(int(total_steps)):
 	for bc in boundary_condition_disp:
 		for eg in element_groups[physical_names[bc][1]]:     
 			if ndime == 2: #A esta la dejo tal como esta y a la 3d la dejo como si fuese general a ver si gusta
-				for ii in range(len(boundary_condition_disp[bc])/6):
+				for ii in range(int(len(boundary_condition_disp[bc])/6)):
 					if (boundary_condition_disp[bc][6*ii+4] <= (z+1) <= boundary_condition_disp[bc][6*ii+5]):
 						diff_tstep = boundary_condition_disp[bc][6*ii+5] - boundary_condition_disp[bc][6*ii+4] + 1
 						if (ii == 0):
@@ -588,7 +588,7 @@ for z in range(int(total_steps)):
 		#IMPOSE DISPLACEMENT BOUNDARY CONDITIONS
 		for bc in boundary_condition_disp:
 			for eg in element_groups[physical_names[bc][1]]:
-				for ii in range(len(boundary_condition_disp[bc])/(ndime*2+2)):
+				for ii in range(int(len(boundary_condition_disp[bc])/(ndime*2+2))):
 					if (boundary_condition_disp[bc][(ndime*2+2)*ii+2*ndime] <= (z+1) <= boundary_condition_disp[bc][6*ii+2*ndime+1]):
 						for n in range(nvert[gmshkind[eg[1]]]):
 							for d in range(ndime):
