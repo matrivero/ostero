@@ -1,4 +1,3 @@
-
 #Function to calculate the net force and displacement on the boundary
 
 import sys

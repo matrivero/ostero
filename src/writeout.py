@@ -98,7 +98,6 @@ def writeoutput(header,z,num_nodes,nodes,num_elements_bulk,elements_bulk,displ,s
 		vtkfile_ini.write('\n')	
 	
 	for voigt_index in range(len(strain_names)):
-
 		vtkfile_ini.write('SCALARS')
 		vtkfile_ini.write(' ')
 		vtkfile_ini.write(strain_names[voigt_index])

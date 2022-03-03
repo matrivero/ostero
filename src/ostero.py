@@ -16,7 +16,7 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#matias.rivero@bsc.es
+
 
 import sys
 import math
@@ -28,7 +28,7 @@ import utils
 
 #PRINT USAGE IF THERE ARE LESS THAN TWO ARGUMENTS
 if (len(sys.argv) < 3):
-	print("Usage ./finite_strain.py input_file boundary_file")
+	print("Usage ./ostero.py input_file boundary_file")
 	sys.exit()
 
 damage_flag = 'OFF'
@@ -444,7 +444,6 @@ else:
 	print("This is a quasi-static problem (neglecting the time derivative)...")
 
 for z in range(int(total_steps)):
-
 	print(' ')
 	print('Solving time step',z+1,'...')
 	it_counter = 0
